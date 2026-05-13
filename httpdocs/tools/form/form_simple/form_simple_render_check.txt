@@ -1,0 +1,43 @@
+1299:             render: function () {
+1300:                 var canvas = $('#form-canvas'); canvas.empty();
+1301:                 var cW = (this.config.canvas && this.config.canvas.width) ? this.config.canvas.width : 1000;
+1302:                 var cH = (this.config.canvas && this.config.canvas.height) ? this.config.canvas.height : 800;
+1303:                 canvas.css({ width: cW + 'px', height: cH + 'px' });
+1304: 
+1305:                 var self = this;
+1306:                 if (this.config.fields) {
+1307:                     this.config.fields.forEach(function (f, fidx) {
+1308:                         var lx = (f.form && f.form.lbl) ? f.form.lbl.x : 0; var ly = (f.form && f.form.lbl) ? f.form.lbl.y : 0;
+1309:                         var ix = (f.form && f.form.inp) ? f.form.inp.x : 0; var iy = (f.form && f.form.inp) ? f.form.inp.y : 0;
+1310:                         var w = f.width ? f.width : 200;
+1311:                         var hStr = ''; if (f.height) hStr = 'height:' + f.height + 'px;';
+1312:                         var isHid = (f.hidden === true || f.hidden === 'true') ? 'is-hidden' : '';
+1313: 
+1314:                         var lbl = $('<div>').attr('id', 'lbl_' + f.fieldName).addClass('form-element f-label ' + isHid).css({ left: lx + 'px', top: ly + 'px' }).text(f.label || f.fieldName);
+1315:                         
+1316:                         if (f.lblStyle) {
+1317:                             if (f.lblStyle.textAlign) { lbl.css('display', 'block'); lbl.css('text-align', f.lblStyle.textAlign); }
+1318:                             if (f.lblStyle.weight === 'bold') lbl.css('font-weight', 'bold');
+1319:                             if (f.lblStyle.weight === 'italic') lbl.css('font-style', 'italic');
+1320:                             if (f.lblStyle.size) lbl.css('font-size', f.lblStyle.size);
+1321:                             if (f.lblStyle.color) lbl.css('color', f.lblStyle.color);
+1322:                         }
+1323: 
+1324:                         if (f.helpText) { var help = $('<i class="fas fa-info-circle help-icon"></i>'); var bubble = $('<div class="help-bubble"></div>').html(f.helpText); help.append(bubble); lbl.append(help); }
+1325:                         if (f.val_req) lbl.append('<span class="text-danger ml-1">*</span>');
+1326:                         if (f.fieldTyp === 'button') lbl.css('display', 'none');
+1327: 
+1328:                         var inp = $('<div>').attr('id', 'inp_' + f.fieldName).addClass('form-element f-input ' + isHid).attr('style', 'left:' + ix + 'px; top:' + iy + 'px; width:' + w + 'px; ' + hStr);
+1329:                         inp.html(self.getInputHtml(f));
+1330: 
+1331:                         var orderBase = (f.tabIndex ? parseInt(f.tabIndex) : (1000 + fidx)) * 2;
+1332:                         lbl.css('order', orderBase);
+1333:                         inp.css('order', orderBase + 1);
+1334: 
+1335:                         var editBtn = $('<button class="design-edit-btn" type="button" title="Dieses Feld konfigurieren"><i class="fas fa-pencil-alt"></i></button>')
+1336:                             .attr('data-fname', f.fieldName)
+1337:                             .attr('onmousedown', 'app.openDesignerField(event, \'' + f.fieldName + '\')');
+1338:                         
+1339:                         // We append the edit btn to BOTH label and input wrappers to make it accessible everywhere!
+1340:                         lbl.append(editBtn.clone());
+1341:                         inp.append(editBtn.clone());

@@ -1,0 +1,17 @@
+[
+  "            ",
+  "            $('#grid-modal-container').remove();",
+  "            $('body').append('<div id=\"grid-modal-container\">' + mHtml + '</div>');",
+  "            $('#gridRowModal').modal('show');",
+  "            ",
+  "            var self = this;",
+  "            $(window).off('message.gridRowModal').on('message.gridRowModal', function(e) {",
+  "                if (e.originalEvent.data === 'form_simple_saved') {",
+  "                    $('#gridRowModal').modal('hide');",
+  "                    self.reload();",
+  "                }",
+  "            });",
+  "        };",
+  "        GridApp.prototype.prevPage = function () { if (this.currentPage > 1) { this.currentPage--; this.loadData(); } };",
+  "        GridApp.prototype.nextPage = function () { this.currentPage++; this.loadData(); };"
+]

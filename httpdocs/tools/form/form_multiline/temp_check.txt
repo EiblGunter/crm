@@ -1,0 +1,31 @@
+1381:         // FIX: Map Open Function Bridge
+1382:         GridApp.prototype.openMap = function (id, f, val) {
+1383:             mapManager.openMap(this.containerId, id, f, val);
+1384:         };
+1385: 
+1386:         GridApp.prototype.startResize = function (e, fieldName) { e.preventDefault(); e.stopPropagation(); var self = this; this.resizingField = fieldName; this.startX = e.pageX; var fieldObj = this.fields.find(function (f) { return f.fieldName == fieldName; }); this.startWidth = fieldObj.width || 150; $(document).on('mousemove.gridresize', function (em) { var diff = em.pageX - self.startX; self.container.find('th[data-field="' + fieldName + '"]').css('width', Math.max(50, self.startWidth + diff) + 'px'); }); $(document).on('mouseup.gridresize', function (em) { $(document).off('.gridresize'); var diff = em.pageX - self.startX; self.updateFieldWidth(fieldName, Math.max(50, self.startWidth + diff)); }); };
+1387:         GridApp.prototype.updateFieldWidth = function (fn, w) { var f = this.fields.find(function (o) { return o.fieldName == fn; }); if (f.width == w) return; f.width = w; this.saveConfig(); };
+1388:         GridApp.prototype.toggleSort = function (f) { this.sortField = f; this.sortOrder = (this.sortOrder === 'ASC') ? 'DESC' : 'ASC'; this.config.sortField = this.sortField; this.config.sortOrder = this.sortOrder; this.saveConfig(); this.renderHeaders(); this.loadData(); };
+1389:         GridApp.prototype.loadData = function () { var self = this; this.setStatus('Lade...'); $.post(AJAX_URL, { action: 'load_data', gridName: this.gridName, page: this.currentPage, limit: this.limit, filters: this.filters, sortField: this.sortField, sortOrder: this.sortOrder }, function (res) { if (res.rows) { self.data = res.rows; self.renderBody(res.rows); self.container.find('.curr-page').text(self.currentPage); self.setStatus('Bereit'); } }, 'json'); };
+1390:         GridApp.prototype.renderBody = function (rows) { var self = this; var html = ''; var gid = this.containerId; if (!rows || rows.length === 0) { html = '<tr><td colspan="' + (this.fields.length + 1) + '" class="text-center p-4">Keine Daten</td></tr>'; } else { rows.forEach(function (row) { html += '<tr data-id="' + row.id + '">'; var editBtn = (self.config.mobile_mode === 'modal') ? '<button class="btn btn-sm btn-outline-primary border-0 mr-1 d-md-none" onclick="window.getGrid(\'' + gid + '\').openRowModal(' + row.id + ')" title="Bearbeiten"><i class="fas fa-pencil-alt"></i></button>' : ''; html += '<td class="text-center" style="position:sticky; left:0; z-index:90; background:var(--ag-color-surface, #fff); box-shadow: 1px 0 0 var(--ag-color-border, #ccc);">' + editBtn + '<button class="btn btn-sm btn-outline-danger border-0" onclick="window.getGrid(\'' + gid + '\').deleteRecord(' + row.id + ')"><i class="fas fa-trash-alt"></i></button></td>'; self.fields.forEach(function (f) { var val = row[f.fieldName]; if (val === undefined || val === null) val = ''; if (val === '' && f.defaultValue) val = f.defaultValue; var filterVal = self.filters[f.fieldName]; var hl = (filterVal && val.toString().toLowerCase().indexOf(filterVal.toLowerCase()) !== -1) ? 'input-match' : ''; var mobHid = f.hide_on_mobile ? ' class="mobile-hidden"' : ''; html += '<td ' + mobHid + ' data-field="' + f.fieldName + '">' + self.getInputHtml(f, val, row, hl, filterVal) + '</td>'; }); html += '</tr>'; }); } this.container.find('.grid-body').html(html); };
+1391: 
+1392:         // FIX: openSignature pass val
+1393:                         GridApp.prototype.getInputHtml = function (f, value, row, hlClass, filterVal) {
+1394:             var self = this; var gid = this.containerId; var id = row.id;
+1395:             if (value === undefined || value === null) value = '';
+1396:             
+1397:             // Build inline styles & classes from field config
+1398:             var inlineStyle = '';
+1399:             var twClasses = 'cell-edit-input form-control form-control-sm ' + hlClass + (f.required ? ' required-field' : '');
+1400:             if (f.style) {
+1401:                 if (f.style.color) inlineStyle += 'color: ' + f.style.color + ' !important; ';
+1402:                 if (f.style.backgroundColor) inlineStyle += 'background-color: ' + f.style.backgroundColor + ' !important; ';
+1403:                 if (f.style.textAlign) inlineStyle += 'text-align: ' + f.style.textAlign + '; ';
+1404:                 if (f.style.weight) {
+1405:                     if (f.style.weight === 'bold') twClasses += ' font-bold';
+1406:                     else inlineStyle += 'font-weight: ' + f.style.weight + '; ';
+1407:                 }
+1408:                 if (f.style.size) inlineStyle += 'font-size: ' + f.style.size + '; ';
+1409:             }
+1410:             
+1411:             var ph = f.behavior && f.behavior.placeholder ? ' placeholder="' + f.behavior.placeholder + '"' : '';
