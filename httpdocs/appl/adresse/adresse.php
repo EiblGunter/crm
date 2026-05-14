@@ -11,32 +11,7 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/db/db.php';
 ob_start();
 
 // --- DATABASE CONNECTION ---
-if (!getenv('MYSQL_HOST')) {
-    $envPath = __DIR__ . '/../../../.env';
-    if (file_exists($envPath)) {
-        $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($lines as $line) {
-            if (strpos(trim($line), '#') === 0) continue;
-            if (strpos($line, '=') !== false) {
-                list($name, $value) = explode('=', $line, 2);
-                $name = trim($name); $value = trim($value);
-                putenv(sprintf('%s=%s', $name, $value));
-            }
-        }
-    }
-}
-
-$mysql_config = array(
-    'driver'  => 'mysql',
-    'host'    => getenv('MYSQL_HOST') ?: '127.0.0.1',
-    'port'    => getenv('MYSQL_PORT') ?: '3307',
-    'db'      => getenv('MYSQL_DATABASE') ?: 'crm_db',
-    'user'    => getenv('MYSQL_USER') ?: 'root',
-    'pass'    => getenv('MYSQL_PASSWORD') ?: 'Hotel111',
-    'charset' => 'utf8mb4'
-);
-
-db_connect($mysql_config, 'default');
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/db.php';
 
 // --- DATABASE INITIALIZATION ---
 // Handled via init.sql, but we ensure the table exists here for the demo.
@@ -68,18 +43,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $id = intval($_POST['id']);
         $field = $_POST['field'];
         $value = $_POST['value'];
+        $logActionType = $_POST['log_action_type'] ?? 'update';
 
         // Validate field to prevent injection
         $allowedFields = array('vorname', 'nachname', 'strasse', 'plz', 'ort');
         if (in_array($field, $allowedFields)) {
+            // Get old data for logging
+            $oldRes = db_select('customers', array('id' => $id));
+            $oldData = ($oldRes['success'] && !empty($oldRes['data'])) ? $oldRes['data'][0] : array();
+
             $now = date('Y-m-d H:i:s');
             $result = db_update('customers', array($field => $value), array('id' => $id));
 
             if ($result['success']) {
                 $response['success'] = true;
                 $response['updated'] = $now;
+
+                // Logging
+                crm_log_add(array(
+                    'app_name'           => 'adresse.php',
+                    'action_type'        => $logActionType,
+                    'table_name'         => 'customers',
+                    'record_id'          => $id,
+                    'changed_field_name' => $field,
+                    'field_old_value'    => $oldData[$field] ?? '',
+                    'field_new_value'    => $value,
+                    'full_old_data'      => $oldData,
+                    'full_new_data'      => array_merge($oldData, array($field => $value)),
+                    'description'        => "Feld $field aktualisiert via AJAX ($logActionType)"
+                ));
             } else {
                 $response['error'] = $result['error'];
+                // Error Logging
+                crm_log_add(array(
+                    'app_name'    => 'adresse.php',
+                    'action_type' => 'error',
+                    'table_name'  => 'customers',
+                    'record_id'   => $id,
+                    'description' => 'Save Error: ' . $result['error']
+                ));
             }
         }
     } elseif ($action === 'fetch') {
@@ -91,6 +93,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $response['data'] = $result['data'][0];
         } elseif (!$result['success']) {
             $response['error'] = $result['error'];
+            // Error Logging
+            crm_log_add(array(
+                'app_name'    => 'adresse.php',
+                'action_type' => 'error',
+                'table_name'  => 'customers',
+                'record_id'   => $id,
+                'description' => 'Fetch Error: ' . $result['error']
+            ));
         }
     } elseif ($action === 'navigate') {
         $currentId = intval($_POST['current_id']);
@@ -130,12 +140,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $response['data'] = $data;
         } else {
             $response['error'] = $result['error'] ?? 'Keine Daten gefunden';
+            // Error Logging
+            if (!$result['success']) {
+                crm_log_add(array(
+                    'app_name'    => 'adresse.php',
+                    'action_type' => 'error',
+                    'table_name'  => 'customers',
+                    'description' => 'Navigation Error: ' . $response['error']
+                ));
+            }
         }
     } elseif ($action === 'new') {
         $result = db_insert('customers', array('vorname' => ''));
         
         if ($result['success']) {
             $newId = $result['last_id'];
+
+            // Logging
+            crm_log_add(array(
+                'app_name'    => 'adresse.php',
+                'action_type' => 'insert',
+                'table_name'  => 'customers',
+                'record_id'   => $newId,
+                'description' => 'Neuer Datensatz erstellt'
+            ));
+
             $selResult = db_select('customers', array('id' => $newId));
             
             if ($selResult['success'] && !empty($selResult['data'])) {
@@ -144,12 +173,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
         } else {
             $response['error'] = $result['error'];
+            // Error Logging
+            crm_log_add(array(
+                'app_name'    => 'adresse.php',
+                'action_type' => 'error',
+                'table_name'  => 'customers',
+                'description' => 'New Record Error: ' . $result['error']
+            ));
         }
     }
 
     // 3. END ERROR/OUTPUT BUFFERING
     $sys_debug_log = trim(ob_get_clean());
     $response['sys_debug_log'] = $sys_debug_log;
+
+    // Log uncaught errors/output if any
+    if (!empty($sys_debug_log)) {
+        crm_log_add(array(
+            'app_name'    => 'adresse.php',
+            'action_type' => 'error',
+            'description' => 'AJAX Uncaught Output: ' . $sys_debug_log
+        ));
+    }
 
     echo json_encode($response);
     exit;
@@ -172,6 +217,16 @@ if ($result['success'] && !empty($result['data'])) {
     
     if ($insRes['success']) {
         $newId = $insRes['last_id'];
+
+        // Logging for auto-created record
+        crm_log_add(array(
+            'app_name'    => 'adresse.php',
+            'action_type' => 'insert',
+            'table_name'  => 'customers',
+            'record_id'   => $newId,
+            'description' => 'Erster Datensatz automatisch erstellt'
+        ));
+
         $selRes = db_select('customers', array('id' => $newId));
         if ($selRes['success'] && !empty($selRes['data'])) {
             $initialData = $selRes['data'][0];
@@ -185,6 +240,15 @@ if ($result['success'] && !empty($result['data'])) {
 
 // 3. END ERROR/OUTPUT BUFFERING
 $sys_debug_log = trim(ob_get_clean());
+
+// Log uncaught errors/output for page load
+if (!empty($sys_debug_log)) {
+    crm_log_add(array(
+        'app_name'    => 'adresse.php',
+        'action_type' => 'error',
+        'description' => 'Page Load Uncaught Output: ' . $sys_debug_log
+    ));
+}
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -479,13 +543,14 @@ $sys_debug_log = trim(ob_get_clean());
             setTimeout(() => n.classList.remove('show'), 2000);
         }
 
-        async function saveToServer(field, value) {
+        async function saveToServer(field, value, logActionType = 'update') {
             const id = document.getElementById('field_id').value;
             const formData = new FormData();
             formData.append('action', 'save');
             formData.append('id', id);
             formData.append('field', field);
             formData.append('value', value);
+            formData.append('log_action_type', logActionType);
 
             try {
                 const response = await fetch('', {
@@ -494,7 +559,7 @@ $sys_debug_log = trim(ob_get_clean());
                 });
                 const result = await response.json();
                 if (result.success) {
-                    showNotification('Gespeichert');
+                    showNotification(logActionType === 'update' ? 'Gespeichert' : logActionType.toUpperCase());
                     document.getElementById('display_updated').textContent = result.updated;
                     document.getElementById(field).setAttribute('data-prev', value);
                 } else if (result.error) {
@@ -594,7 +659,7 @@ $sys_debug_log = trim(ob_get_clean());
             redoStack.push({ field: change.field, value: currentValue });
 
             el.value = change.value;
-            await saveToServer(change.field, change.value);
+            await saveToServer(change.field, change.value, 'undo');
             updateUndoRedoButtons();
         }
 
@@ -608,7 +673,7 @@ $sys_debug_log = trim(ob_get_clean());
             undoStack.push({ field: change.field, value: currentValue });
 
             el.value = change.value;
-            await saveToServer(change.field, change.value);
+            await saveToServer(change.field, change.value, 'redo');
             updateUndoRedoButtons();
         }
 

@@ -1,6 +1,8 @@
 <?php
 ob_start();
 session_start();
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/db.php';
+
 /**
  * Project: ge_grid_edit
  * Author:  Gunter Eibl
@@ -15,8 +17,6 @@ $gridName = $_SESSION['form_simple_grid_control_table'];
 $startId = isset($_GET['id']) ? intval($_GET['id']) : 1;
 $mode = isset($_GET['mode']) ? $_GET['mode'] : 'design';
 $modal_mode = isset($_GET['modal_mode']) ? intval($_GET['modal_mode']) : 0;
-
-$sys_debug_log = trim(ob_get_clean());
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -2617,3 +2617,9 @@ $sys_debug_log = trim(ob_get_clean());
 </body>
 
 </html>
+<?php
+// END ERROR/OUTPUT BUFFERING
+$output = ob_get_clean();
+echo $output;
+?>
+

@@ -32,6 +32,14 @@ $mysql_config = array(
 // Establish connection
 $db_result = db_connect($mysql_config, 'default');
 
+// Include logging functions
+require_once __DIR__ . '/functions_log.php';
+
+// Ensure log table exists (fast check)
+if ($db_result['success']) {
+    crm_log_init_table();
+}
+
 // Export connection status for UI if needed
 if (!$db_result['success']) {
     $db_connection_error = $db_result['error'];

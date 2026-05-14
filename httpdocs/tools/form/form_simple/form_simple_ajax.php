@@ -10,30 +10,7 @@ ini_set('display_errors', 1);
 ob_start();
 session_start();
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/db/db.php';
-if (!getenv('MYSQL_HOST')) {
-    $envPath = $_SERVER['DOCUMENT_ROOT'] . '/../.env';
-    if (file_exists($envPath)) {
-        $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($lines as $line) {
-            if (strpos(trim($line), '#') === 0) continue;
-            if (strpos($line, '=') !== false) {
-                list($name, $value) = explode('=', $line, 2);
-                putenv(sprintf('%s=%s', trim($name), trim($value)));
-            }
-        }
-    }
-}
-$mysql_config = array(
-    'driver'  => 'mysql',
-    'host'    => getenv('MYSQL_HOST') ?: '127.0.0.1',
-    'port'    => getenv('MYSQL_PORT') ?: '3307',
-    'db'      => getenv('MYSQL_DATABASE') ?: 'crm_db',
-    'user'    => getenv('MYSQL_USER') ?: 'root',
-    'pass'    => getenv('MYSQL_PASSWORD') ?: 'Hotel111',
-    'charset' => 'utf8mb4'
-);
-db_connect($mysql_config, 'default');
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/db.php';
 
 // --- HELPER FUNCTIONS ---
 function callAI($prompt, $gemini, $chatgpt, $anthropic) {
@@ -128,7 +105,7 @@ if(is_array($configFields)) {
 foreach ($configFields as $field) {
 if (isset($field['lookup']) && !empty($field['lookup'])) {
 $options = array();
-if ($field['lookup']['type'] == 'sql') {
+if (isset($field['lookup']['type']) && $field['lookup']['type'] == 'sql') {
 $resL = db_query($field['lookup']['source']);
 if ($resL['success'] && !empty($resL['data'])) {
 foreach ($resL['data'] as $rowL) {
@@ -148,20 +125,37 @@ return $lookups;
 }
 
 function sendJson($data) {
-$sys_debug_log = trim(ob_get_clean());
-if (is_array($data)) $data['sys_debug_log'] = $sys_debug_log;
-header('Content-Type: application/json');
-$json = json_encode($data);
-if ($json === false) {
-$utf8ize = function($d) use (&$utf8ize) {
-if (is_array($d)) { foreach ($d as $k => $v) $d[$k] = $utf8ize($v); return $d; }
-if (is_string($d)) return mb_convert_encoding($d, 'UTF-8', 'UTF-8');
-return $d;
-};
-$data = $utf8ize($data);
-$json = json_encode($data);
-}
-echo $json; exit;
+    $sys_debug_log = trim(ob_get_clean());
+    if (is_array($data)) $data['sys_debug_log'] = $sys_debug_log;
+
+    // Log errors if present
+    if (!empty($sys_debug_log)) {
+        crm_log_add(array(
+            'app_name'    => 'form_simple_ajax.php',
+            'action_type' => 'error',
+            'description' => 'Uncaught Output: ' . $sys_debug_log
+        ));
+    }
+    if (isset($data['error']) && !empty($data['error'])) {
+        crm_log_add(array(
+            'app_name'    => 'form_simple_ajax.php',
+            'action_type' => 'error',
+            'description' => 'Application Error: ' . $data['error']
+        ));
+    }
+
+    header('Content-Type: application/json');
+    $json = json_encode($data);
+    if ($json === false) {
+        $utf8ize = function($d) use (&$utf8ize) {
+            if (is_array($d)) { foreach ($d as $k => $v) $d[$k] = $utf8ize($v); return $d; }
+            if (is_string($d)) return mb_convert_encoding($d, 'UTF-8', 'UTF-8');
+            return $d;
+        };
+        $data = $utf8ize($data);
+        $json = json_encode($data);
+    }
+    echo $json; exit;
 }
 
 $action = isset($_REQUEST['action']) ? $_REQUEST['action'] : '';
@@ -392,7 +386,16 @@ $config = array('tableName'=>$tableName, 'fields'=>array(), 'canvas'=>array('wid
 'apiKeys'=>array('gemini'=>'','chatgpt'=>'','anthropic'=>''));
 $js = addslashes(json_encode($config));
 $jsRaw = json_encode($config);
-db_insert('grid_definition', array('grid_name' => $gridName, 'config_json' => $jsRaw));
+$resIns = db_insert('grid_definition', array('grid_name' => $gridName, 'config_json' => $jsRaw));
+if ($resIns['success']) {
+    crm_log_add(array(
+        'app_name'    => 'form_simple_ajax.php',
+        'action_type' => 'insert',
+        'table_name'  => 'grid_definition',
+        'record_id'   => $gridName,
+        'description' => "Initial-Konfiguration für Grid '$gridName' erstellt"
+    ));
+}
 } else {
 $config = json_decode($resConf['data'][0]['config_json'], true);
 if(!is_array($config)) $config = array('tableName'=>preg_replace('/_(grid|popup)$/','',$gridName), 'fields'=>array());
@@ -482,7 +485,16 @@ if($resMin['success'] && !empty($resMin['data']) && $resMin['data'][0]['min_id']
 
     if ($action == 'save_config') {
     $js = addslashes($_REQUEST['config']);
-    db_update('grid_definition', array('config_json' => stripslashes($js)), array('grid_name' => $gridName));
+    $res = db_update('grid_definition', array('config_json' => stripslashes($js)), array('grid_name' => $gridName));
+    if ($res['success']) {
+        crm_log_add(array(
+            'app_name'    => 'form_simple_ajax.php',
+            'action_type' => 'update',
+            'table_name'  => 'grid_definition',
+            'record_id'   => $gridName,
+            'description' => "Konfiguration für Grid '$gridName' gespeichert"
+        ));
+    }
     sendJson(array('status'=>'ok'));
     }
 
@@ -507,7 +519,16 @@ if($resMin['success'] && !empty($resMin['data']) && $resMin['data'][0]['min_id']
     }
     }
     $js = addslashes(json_encode($conf));
-    db_update('grid_definition', array('config_json' => stripslashes($js)), array('grid_name' => $gridName));
+    $res = db_update('grid_definition', array('config_json' => stripslashes($js)), array('grid_name' => $gridName));
+    if ($res['success']) {
+        crm_log_add(array(
+            'app_name'    => 'form_simple_ajax.php',
+            'action_type' => 'update',
+            'table_name'  => 'grid_definition',
+            'record_id'   => $gridName,
+            'description' => "Layout für Grid '$gridName' aktualisiert"
+        ));
+    }
     sendJson(array('status'=>'ok'));
     }
 
@@ -515,7 +536,16 @@ if($resMin['success'] && !empty($resMin['data']) && $resMin['data'][0]['min_id']
     if (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
     $hex = bin2hex(file_get_contents($_FILES['file']['tmp_name']));
     $sql = "UPDATE ".$_REQUEST['tableName']." SET ".$_REQUEST['field']." = 0x$hex WHERE id = ".intval($_REQUEST['id']);
-    db_query($sql);
+    $res = db_query($sql);
+    if ($res['success']) {
+        crm_log_add(array(
+            'app_name'    => 'form_simple_ajax.php',
+            'action_type' => 'update',
+            'table_name'  => $_REQUEST['tableName'],
+            'record_id'   => $_REQUEST['id'],
+            'description' => "Datei/Bild in Feld '".$_REQUEST['field']."' hochgeladen"
+        ));
+    }
     sendJson(array('status'=>'uploaded'));
     } else sendJson(array('error'=>'File error'));
     }
@@ -551,7 +581,22 @@ if($resMin['success'] && !empty($resMin['data']) && $resMin['data'][0]['min_id']
         $tbl = $_REQUEST['tableName']; $fld = $_REQUEST['field']; $val = addslashes($_REQUEST['value']); $id =
         intval($_REQUEST['id']);
         if($tbl && $fld) {
-        db_update($tbl, array($fld => stripslashes($val)), array('id' => $id));
+        $oldRes = db_select($tbl, array('id' => $id));
+        $oldVal = ($oldRes['success'] && !empty($oldRes['data'])) ? ($oldRes['data'][0][$fld] ?? '') : '';
+
+        $res = db_update($tbl, array($fld => stripslashes($val)), array('id' => $id));
+        if ($res['success']) {
+            crm_log_add(array(
+                'app_name'           => 'form_simple_ajax.php',
+                'action_type'        => 'update',
+                'table_name'         => $tbl,
+                'record_id'          => $id,
+                'changed_field_name' => $fld,
+                'field_old_value'    => $oldVal,
+                'field_new_value'    => stripslashes($val),
+                'description'        => "Datensatz ID $id in Tabelle '$tbl' aktualisiert (Feld: $fld)"
+            ));
+        }
         sendJson(array('status'=>'ok'));
         } else sendJson(array('error'=>'Missing params'));
         }

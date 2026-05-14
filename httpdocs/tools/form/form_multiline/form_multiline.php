@@ -8,35 +8,10 @@
 
 session_start();
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/db/db.php';
-ob_start(); // AG Error Handling: Start Buffering
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/db.php';
 
-// Umgebungsvariablen laden, falls nicht vorhanden
-if (!getenv('MYSQL_HOST')) {
-    $envPath = $_SERVER['DOCUMENT_ROOT'] . '/../.env';
-    if (file_exists($envPath)) {
-        $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($lines as $line) {
-            if (strpos(trim($line), '#') === 0) continue;
-            if (strpos($line, '=') !== false) {
-                list($name, $value) = explode('=', $line, 2);
-                putenv(sprintf('%s=%s', trim($name), trim($value)));
-            }
-        }
-    }
-}
-
-// Datenbankverbindung aufbauen
-$mysql_config = array(
-    'driver'  => 'mysql',
-    'host'    => getenv('MYSQL_HOST') ?: '127.0.0.1',
-    'port'    => getenv('MYSQL_PORT') ?: '3307',
-    'db'      => getenv('MYSQL_DATABASE') ?: 'crm_db',
-    'user'    => getenv('MYSQL_USER') ?: 'root',
-    'pass'    => getenv('MYSQL_PASSWORD') ?: 'Hotel111',
-    'charset' => 'utf8mb4'
-);
-db_connect($mysql_config, 'default');
+// 1. START ERROR/OUTPUT BUFFERING
+ob_start();
 
 $tableName = isset($_GET['table_name']) ? $_GET['table_name'] : 'adresse';
 $gridName = isset($_GET['grid_name']) ? $_GET['grid_name'] : 'adresse_multiline';
@@ -50,7 +25,6 @@ if (!isset($_SESSION['asdw_user']))
 $currentUser = $_SESSION['asdw_user'];
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/design_templates/ag_library.php';
-$sys_debug_log = trim(ob_get_clean());
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -2074,6 +2048,16 @@ $sys_debug_log = trim(ob_get_clean());
 </body>
 
 </html>
+<?php
+// 3. END ERROR/OUTPUT BUFFERING
+$output = ob_get_clean();
+echo $output;
+
+// Detection of errors in the captured output (simple heuristic: if it contains '<b>Notice</b>' or similar, but here we just check if there's any unexpected output before the HTML starts, or if we want to log the whole thing if it's "dirty")
+// Actually, in a page load, we usually just want to log if there were actual errors.
+// Since we can't easily distinguish between "good" HTML and "bad" errors in the middle, 
+// we rely on the fact that we started buffering at the very top.
+?>
 
 
 

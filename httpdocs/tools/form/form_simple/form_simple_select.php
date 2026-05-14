@@ -10,30 +10,7 @@ if (empty($action)) {
     $action = 'list';
 }
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/db/db.php';
-if (!getenv('MYSQL_HOST')) {
-    $envPath = $_SERVER['DOCUMENT_ROOT'] . '/../.env';
-    if (file_exists($envPath)) {
-        $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($lines as $line) {
-            if (strpos(trim($line), '#') === 0) continue;
-            if (strpos($line, '=') !== false) {
-                list($name, $value) = explode('=', $line, 2);
-                putenv(sprintf('%s=%s', trim($name), trim($value)));
-            }
-        }
-    }
-}
-$mysql_config = array(
-    'driver'  => 'mysql',
-    'host'    => getenv('MYSQL_HOST') ?: '127.0.0.1',
-    'port'    => getenv('MYSQL_PORT') ?: '3307',
-    'db'      => getenv('MYSQL_DATABASE') ?: 'crm_db',
-    'user'    => getenv('MYSQL_USER') ?: 'root',
-    'pass'    => getenv('MYSQL_PASSWORD') ?: 'Hotel111',
-    'charset' => 'utf8mb4'
-);
-db_connect($mysql_config, 'default');
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/db.php';
 
 $pageTitle = "Definitionen Übersicht";
 if ($action == 'new') {
@@ -56,7 +33,16 @@ if ($action == 'rename') {
     $newName = filter_input(INPUT_POST, 'new_grid_name');
     
     if (!empty($oldName) && !empty($newName)) {
-        db_update('grid_definition', array('grid_name' => $newName), array('grid_name' => $oldName));
+        $res = db_update('grid_definition', array('grid_name' => $newName), array('grid_name' => $oldName));
+        if ($res['success']) {
+            crm_log_add(array(
+                'app_name'    => 'form_simple_select.php',
+                'action_type' => 'update',
+                'table_name'  => 'grid_definition',
+                'record_id'   => $newName,
+                'description' => "Definition von '$oldName' nach '$newName' umbenannt"
+            ));
+        }
     }
     // FEHLERBEHEBUNG: Kein Redirect zur form_view, sondern zurück zur Liste in dieser App!
     $action = 'list';
@@ -117,6 +103,13 @@ if ($action == 'save') {
     $resIns = db_insert('grid_definition', array('grid_name' => $gridName, 'config_json' => $jsonString));
     
     if ($resIns['success']) {
+        crm_log_add(array(
+            'app_name'    => 'form_simple_select.php',
+            'action_type' => 'insert',
+            'table_name'  => 'grid_definition',
+            'record_id'   => $gridName,
+            'description' => "Neue Simple-Grid Definition '$gridName' für Tabelle '$newTable' erstellt"
+        ));
         // HIER ist der einzige Ort, wo form_view aufgerufen werden soll (nach Neuanlage)
         $_SESSION['grid_control_table'] = $gridName;
         header("Location: form_simple.php?id=1");
@@ -199,7 +192,16 @@ if ($action == 'sync') {
         
         $configObj->fields = $newFieldsArray;
         $updatedJsonStr = json_encode($configObj);
-        db_update('grid_definition', array('config_json' => $updatedJsonStr), array('grid_name' => $syncGrid));
+        $resUpd = db_update('grid_definition', array('config_json' => $updatedJsonStr), array('grid_name' => $syncGrid));
+        if ($resUpd['success']) {
+            crm_log_add(array(
+                'app_name'    => 'form_simple_select.php',
+                'action_type' => 'update',
+                'table_name'  => 'grid_definition',
+                'record_id'   => $syncGrid,
+                'description' => "Struktur-Synchronisation für '$syncGrid' durchgeführt"
+            ));
+        }
     }
     
     // FEHLERBEHEBUNG: Kein Redirect, sondern Aktion wieder auf list setzen!
@@ -505,3 +507,14 @@ $sys_debug_log = trim(ob_get_clean());
     </script>
 </body>
 </html>
+<?php
+// END ERROR/OUTPUT BUFFERING
+$sys_debug_log = trim(ob_get_clean());
+if (!empty($sys_debug_log)) {
+    crm_log_add(array(
+        'app_name'    => 'form_simple_select.php',
+        'action_type' => 'error',
+        'description' => 'Page Load Uncaught Output: ' . $sys_debug_log
+    ));
+}
+?>

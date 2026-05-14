@@ -5,10 +5,7 @@
  * Guidelines: Scriptcase-like macros simulated, PDO used as per project db.php.
  */
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/db/db.php';
-
-// 1. START ERROR/OUTPUT BUFFERING
-ob_start();
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/db.php';
 
 // --- DATABASE INITIALIZATION ---
 function initDatabase()
@@ -24,11 +21,7 @@ function initDatabase()
         updated DATETIME
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
 
-    try {
-        DB::exec($sql);
-    } catch (Exception $e) {
-        error_log("Database Init Error: " . $e->getMessage());
-    }
+    db_query($sql);
 }
 
 initDatabase();
@@ -44,27 +37,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $id = intval($_POST['id']);
             $field = $_POST['field'];
             $value = $_POST['value'];
+            $logActionType = $_POST['log_action_type'] ?? 'update';
 
             // Validate field to prevent injection
             $allowedFields = array('vorname', 'name', 'strasse', 'plz', 'ort');
             if (in_array($field, $allowedFields)) {
-                $sql = "UPDATE adr_test SET $field = ?, updated = NOW() WHERE id = ?";
-                DB::exec($sql, array($value, $id));
+                // Get old data for logging
+                $oldRes = db_select('adr_test', array('id' => $id));
+                $oldData = ($oldRes['success'] && !empty($oldRes['data'])) ? $oldRes['data'][0] : array();
 
-                // Fetch updated time
-                $stmt = DB::query("SELECT updated FROM adr_test WHERE id = ?", array($id));
-                $row = $stmt->fetch();
+                $now = date('Y-m-d H:i:s');
+                $result = db_update('adr_test', array($field => $value, 'updated' => $now), array('id' => $id));
 
-                $response['success'] = true;
-                $response['updated'] = $row['updated'];
+                if ($result['success']) {
+                    $response['success'] = true;
+                    $response['updated'] = $now;
+
+                    // Logging
+                    crm_log_add(array(
+                        'app_name'           => 'adresse_ohne_db_layer.php',
+                        'action_type'        => $logActionType,
+                        'table_name'         => 'adr_test',
+                        'record_id'          => $id,
+                        'changed_field_name' => $field,
+                        'field_old_value'    => $oldData[$field] ?? '',
+                        'field_new_value'    => $value,
+                        'full_old_data'      => $oldData,
+                        'full_new_data'      => array_merge($oldData, array($field => $value, 'updated' => $now)),
+                        'description'        => "Feld $field aktualisiert via AJAX ($logActionType)"
+                    ));
+                } else {
+                    $response['error'] = $result['error'];
+                    // Error Logging
+                    crm_log_add(array(
+                        'app_name'    => 'adresse_ohne_db_layer.php',
+                        'action_type' => 'error',
+                        'table_name'  => 'adr_test',
+                        'record_id'   => $id,
+                        'description' => 'Save Error: ' . $result['error']
+                    ));
+                }
             }
         } elseif ($action === 'fetch') {
             $id = intval($_POST['id']);
-            $stmt = DB::query("SELECT * FROM adr_test WHERE id = ?", array($id));
-            $data = $stmt->fetch();
-            if ($data) {
+            $result = db_select('adr_test', array('id' => $id));
+            if ($result['success'] && !empty($result['data'])) {
                 $response['success'] = true;
-                $response['data'] = $data;
+                $response['data'] = $result['data'][0];
+            } else if (!$result['success']) {
+                $response['error'] = $result['error'];
+                // Error Logging
+                crm_log_add(array(
+                    'app_name'    => 'adresse_ohne_db_layer.php',
+                    'action_type' => 'error',
+                    'table_name'  => 'adr_test',
+                    'description' => 'Fetch Error: ' . $result['error']
+                ));
             }
         } elseif ($action === 'navigate') {
             $currentId = intval($_POST['current_id']);
@@ -85,13 +113,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $sql = "SELECT * FROM adr_test ORDER BY id DESC LIMIT 1";
             }
 
-            $stmt = DB::query($sql, $params);
-            $data = $stmt->fetch();
+            $result = db_query($sql, $params);
+            $data = ($result['success'] && !empty($result['data'])) ? $result['data'][0] : null;
 
             // If next/prev fails, try to stay on current or find first/last
             if (!$data && ($direction === 'next' || $direction === 'prev')) {
-                $stmt = DB::query("SELECT * FROM adr_test WHERE id = ?", array($currentId));
-                $data = $stmt->fetch();
+                $currRes = db_select('adr_test', array('id' => $currentId));
+                $data = ($currRes['success'] && !empty($currRes['data'])) ? $currRes['data'][0] : null;
             }
 
             if ($data) {
@@ -99,16 +127,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $response['data'] = $data;
             }
         } elseif ($action === 'new') {
-            $sql = "INSERT INTO adr_test (created, updated) VALUES (NOW(), NOW())";
-            DB::exec($sql);
-            $newId = DB::lastInsertId();
+            $now = date('Y-m-d H:i:s');
+            $result = db_insert('adr_test', array('created' => $now, 'updated' => $now));
+            
+            if ($result['success']) {
+                $newId = $result['last_id'];
 
-            $stmt = DB::query("SELECT * FROM adr_test WHERE id = ?", array($newId));
-            $data = $stmt->fetch();
+                // Logging
+                crm_log_add(array(
+                    'app_name'    => 'adresse_ohne_db_layer.php',
+                    'action_type' => 'insert',
+                    'table_name'  => 'adr_test',
+                    'record_id'   => $newId,
+                    'description' => 'Neuer Datensatz erstellt'
+                ));
 
-            if ($data) {
-                $response['success'] = true;
-                $response['data'] = $data;
+                $selRes = db_select('adr_test', array('id' => $newId));
+                if ($selRes['success'] && !empty($selRes['data'])) {
+                    $response['success'] = true;
+                    $response['data'] = $selRes['data'][0];
+                }
+            } else {
+                $response['error'] = $result['error'];
+                // Error Logging
+                crm_log_add(array(
+                    'app_name'    => 'adresse_ohne_db_layer.php',
+                    'action_type' => 'error',
+                    'table_name'  => 'adr_test',
+                    'description' => 'New Record Error: ' . $result['error']
+                ));
             }
         }
     } catch (Exception $e) {
@@ -119,29 +166,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $sys_debug_log = trim(ob_get_clean());
     $response['sys_debug_log'] = $sys_debug_log;
 
+    // Log uncaught errors/output if any
+    if (!empty($sys_debug_log)) {
+        crm_log_add(array(
+            'app_name'    => 'adresse_ohne_db_layer.php',
+            'action_type' => 'error',
+            'description' => 'AJAX Uncaught Output: ' . $sys_debug_log
+        ));
+    }
+
     echo json_encode($response);
     exit;
 }
 
 // --- INITIAL LOAD ---
 $initialData = null;
-try {
-    $stmt = DB::query("SELECT * FROM adr_test ORDER BY id ASC LIMIT 1");
-    $initialData = $stmt->fetch();
+$result = db_select('adr_test', array(), array('order_by' => 'id ASC', 'limit' => 1));
 
-    if (!$initialData) {
-        // Create first record if empty
-        DB::exec("INSERT INTO adr_test (vorname, name, created, updated) VALUES ('', '', NOW(), NOW())");
-        $newId = DB::lastInsertId();
-        $stmt = DB::query("SELECT * FROM adr_test WHERE id = ?", array($newId));
-        $initialData = $stmt->fetch();
+if ($result['success'] && !empty($result['data'])) {
+    $initialData = $result['data'][0];
+} elseif ($result['success'] && empty($result['data'])) {
+    // Create first record if empty
+    $now = date('Y-m-d H:i:s');
+    $insRes = db_insert('adr_test', array(
+        'vorname' => '',
+        'name' => '',
+        'created' => $now,
+        'updated' => $now
+    ));
+    
+    if ($insRes['success']) {
+        $newId = $insRes['last_id'];
+
+        // Logging
+        crm_log_add(array(
+            'app_name'    => 'adresse_ohne_db_layer.php',
+            'action_type' => 'insert',
+            'table_name'  => 'adr_test',
+            'record_id'   => $newId,
+            'description' => 'Erster Datensatz automatisch erstellt'
+        ));
+
+        $selRes = db_select('adr_test', array('id' => $newId));
+        if ($selRes['success'] && !empty($selRes['data'])) {
+            $initialData = $selRes['data'][0];
+        }
     }
-} catch (Exception $e) {
-    $error = $e->getMessage();
+} else {
+    $error = $result['error'] ?? 'Unbekannter DB Fehler';
 }
 
 // 3. END ERROR/OUTPUT BUFFERING
 $sys_debug_log = trim(ob_get_clean());
+
+// Log uncaught errors/output for page load
+if (!empty($sys_debug_log)) {
+    crm_log_add(array(
+        'app_name'    => 'adresse_ohne_db_layer.php',
+        'action_type' => 'error',
+        'description' => 'Page Load Uncaught Output: ' . $sys_debug_log
+    ));
+}
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -430,13 +515,14 @@ $sys_debug_log = trim(ob_get_clean());
             setTimeout(() => n.classList.remove('show'), 2000);
         }
 
-        async function saveToServer(field, value) {
+        async function saveToServer(field, value, logActionType = 'update') {
             const id = document.getElementById('field_id').value;
             const formData = new FormData();
             formData.append('action', 'save');
             formData.append('id', id);
             formData.append('field', field);
             formData.append('value', value);
+            formData.append('log_action_type', logActionType);
 
             try {
                 const response = await fetch('', {
@@ -445,7 +531,7 @@ $sys_debug_log = trim(ob_get_clean());
                 });
                 const result = await response.json();
                 if (result.success) {
-                    showNotification('Gespeichert');
+                    showNotification(logActionType === 'update' ? 'Gespeichert' : logActionType.toUpperCase());
                     document.getElementById('display_updated').textContent = result.updated;
                     document.getElementById(field).setAttribute('data-prev', value);
                 }
@@ -541,7 +627,7 @@ $sys_debug_log = trim(ob_get_clean());
             redoStack.push({ field: change.field, value: currentValue });
 
             el.value = change.value;
-            await saveToServer(change.field, change.value);
+            await saveToServer(change.field, change.value, 'undo');
             updateUndoRedoButtons();
         }
 
@@ -555,7 +641,7 @@ $sys_debug_log = trim(ob_get_clean());
             undoStack.push({ field: change.field, value: currentValue });
 
             el.value = change.value;
-            await saveToServer(change.field, change.value);
+            await saveToServer(change.field, change.value, 'redo');
             updateUndoRedoButtons();
         }
 

@@ -1,34 +1,10 @@
 <?php
 session_start();
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/db/db.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/db.php';
+
+// 1. START ERROR/OUTPUT BUFFERING
 ob_start();
-
-// Umgebungsvariablen laden, falls nicht vorhanden
-if (!getenv('MYSQL_HOST')) {
-    $envPath = $_SERVER['DOCUMENT_ROOT'] . '/../.env';
-    if (file_exists($envPath)) {
-        $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($lines as $line) {
-            if (strpos(trim($line), '#') === 0) continue;
-            if (strpos($line, '=') !== false) {
-                list($name, $value) = explode('=', $line, 2);
-                putenv(sprintf('%s=%s', trim($name), trim($value)));
-            }
-        }
-    }
-}
-
-$mysql_config = array(
-    'driver'  => 'mysql',
-    'host'    => getenv('MYSQL_HOST') ?: '127.0.0.1',
-    'port'    => getenv('MYSQL_PORT') ?: '3307',
-    'db'      => getenv('MYSQL_DATABASE') ?: 'crm_db',
-    'user'    => getenv('MYSQL_USER') ?: 'root',
-    'pass'    => getenv('MYSQL_PASSWORD') ?: 'Hotel111',
-    'charset' => 'utf8mb4'
-);
-db_connect($mysql_config, 'default');
 
 // Aktions-Routing
 $action = filter_input(INPUT_GET, 'action') ?: filter_input(INPUT_POST, 'action') ?: 'list';
@@ -79,7 +55,24 @@ if ($action === 'create') {
             $jsonObj = array("tableName" => $tableName, "canvas" => array("width" => 1000, "height" => 800), "fields" => $fieldsArray);
             
             // Speichern
-            db_insert('grid_definition', array('grid_name' => $gridName, 'config_json' => json_encode($jsonObj), 'type_of_form' => $formType));
+            $resIns = db_insert('grid_definition', array('grid_name' => $gridName, 'config_json' => json_encode($jsonObj), 'type_of_form' => $formType));
+            
+            if ($resIns['success']) {
+                crm_log_add(array(
+                    'app_name'    => 'form_list.php',
+                    'action_type' => 'insert',
+                    'table_name'  => 'grid_definition',
+                    'record_id'   => $gridName,
+                    'description' => "Neue Form '$gridName' für Tabelle '$tableName' erstellt"
+                ));
+            } else {
+                crm_log_add(array(
+                    'app_name'    => 'form_list.php',
+                    'action_type' => 'error',
+                    'table_name'  => 'grid_definition',
+                    'description' => "Fehler beim Erstellen der Form '$gridName': " . $resIns['error']
+                ));
+            }
         }
         
         // Nach Erstellung direkt öffnen
@@ -110,7 +103,23 @@ if ($action === 'open') {
 if ($action === 'delete') {
     $gridName = filter_input(INPUT_GET, 'grid_name');
     if ($gridName) {
-        db_query("UPDATE grid_definition SET is_deleted_yn = 1 WHERE grid_name = ?", array($gridName));
+        $resDel = db_query("UPDATE grid_definition SET is_deleted_yn = 1 WHERE grid_name = ?", array($gridName));
+        if ($resDel['success']) {
+            crm_log_add(array(
+                'app_name'    => 'form_list.php',
+                'action_type' => 'soft_delete',
+                'table_name'  => 'grid_definition',
+                'record_id'   => $gridName,
+                'description' => "Form '$gridName' gelöscht"
+            ));
+        } else {
+            crm_log_add(array(
+                'app_name'    => 'form_list.php',
+                'action_type' => 'error',
+                'table_name'  => 'grid_definition',
+                'description' => "Fehler beim Löschen der Form '$gridName': " . $resDel['error']
+            ));
+        }
         header("Location: form_list.php");
         exit;
     }
@@ -135,9 +144,27 @@ if ($action === 'update_metadata') {
         
         $res = db_query("UPDATE grid_definition SET grid_name = ?, description = ? WHERE grid_name = ?", array($newGridName, $description, $oldGridName));
         
-        // Update session if needed, though they are stored in DB.
+        if ($res['success']) {
+            crm_log_add(array(
+                'app_name'    => 'form_list.php',
+                'action_type' => 'update',
+                'table_name'  => 'grid_definition',
+                'record_id'   => $newGridName,
+                'description' => "Metadaten für Form '$newGridName' aktualisiert (vorher: '$oldGridName')"
+            ));
+        } else {
+            crm_log_add(array(
+                'app_name'    => 'form_list.php',
+                'action_type' => 'error',
+                'table_name'  => 'grid_definition',
+                'description' => "Fehler beim Update der Metadaten für '$oldGridName': " . $res['error']
+            ));
+        }
         
         $sys_debug_log = trim(ob_get_clean());
+        if (!empty($sys_debug_log)) {
+            crm_log_add(array('app_name' => 'form_list.php', 'action_type' => 'error', 'description' => 'Uncaught AJAX Output: ' . $sys_debug_log));
+        }
         echo json_encode(['success' => $res['success'], 'error' => $res['error'] ?? '', 'sys_debug_log' => $sys_debug_log]);
     } else {
         $sys_debug_log = trim(ob_get_clean());
@@ -187,7 +214,16 @@ if ($action === 'api_table_data') {
 // HTML & UI
 // -----------------------------------------------------------------------------
 require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/design_templates/ag_library.php';
+
+// 3. END ERROR/OUTPUT BUFFERING
 $sys_debug_log = trim(ob_get_clean());
+if (!empty($sys_debug_log)) {
+    crm_log_add(array(
+        'app_name'    => 'form_list.php',
+        'action_type' => 'error',
+        'description' => 'Page Load Uncaught Output: ' . $sys_debug_log
+    ));
+}
 ?>
 <!DOCTYPE html>
 <html lang="de">

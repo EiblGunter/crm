@@ -66,3 +66,31 @@ header('Content-Type: application/json; charset=utf-8');
 echo json_encode($response);
 exit;
 ```
+
+### 6. CRM Logging Integration (Error Logging)
+Wenn im `$sys_debug_log` kritische Inhalte (PHP Warnings, Errors) auftauchen oder eine Datenbank-Operation (`db_*`) fehlschlägt, MUSS dies zusätzlich in der Tabelle `crm_log` protokolliert werden.
+
+- **Action Type**: Verwende `action_type => 'error'`.
+- **Beschreibung**: Hinterlege den Inhalt von `$sys_debug_log` oder die Fehlermeldung der Datenbank (`$result['error']`).
+- **Zeitpunkt**: Der Log-Eintrag erfolgt unmittelbar nachdem der Fehler erkannt wurde oder bevor der Output-Buffer geschlossen wird.
+
+**Beispiel für Fehler-Logging:**
+```php
+if (!$result['success']) {
+    crm_log_add(array(
+        'app_name'    => 'meine_app',
+        'action_type' => 'error',
+        'table_name'  => 'meine_tabelle',
+        'description' => 'Datenbank-Fehler: ' . $result['error']
+    ));
+}
+
+// Oder bei unerwartetem Output
+if (!empty($sys_debug_log)) {
+    crm_log_add(array(
+        'app_name'    => 'meine_app',
+        'action_type' => 'error',
+        'description' => 'Uncaught Output/Error: ' . $sys_debug_log
+    ));
+}
+```

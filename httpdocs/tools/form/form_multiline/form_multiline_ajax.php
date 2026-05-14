@@ -9,36 +9,7 @@
 ob_start();
 session_start();
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/db/db.php';
-
-if (!getenv('MYSQL_HOST')) {
-    $envPath = $_SERVER['DOCUMENT_ROOT'] . '/../.env';
-    if (file_exists($envPath)) {
-        $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($lines as $line) {
-            if (strpos(trim($line), '#') === 0) continue;
-            if (strpos($line, '=') !== false) {
-                list($name, $value) = explode('=', $line, 2);
-                putenv(sprintf('%s=%s', trim($name), trim($value)));
-            }
-        }
-    }
-}
-
-if (!function_exists('db_connect')) {
-    // Falls db.php nicht aktiv ist
-} else {
-    $mysql_config = array(
-        'driver'  => 'mysql',
-        'host'    => getenv('MYSQL_HOST') ?: '127.0.0.1',
-        'port'    => getenv('MYSQL_PORT') ?: '3307',
-        'db'      => getenv('MYSQL_DATABASE') ?: 'crm_db',
-        'user'    => getenv('MYSQL_USER') ?: 'root',
-        'pass'    => getenv('MYSQL_PASSWORD') ?: 'Hotel111',
-        'charset' => 'utf8mb4'
-    );
-    @db_connect($mysql_config, 'default');
-}
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/db.php';
 // --- HELPER ---
 function makeThumbnail($blob, $width = 80) {
     if (empty($blob)) return null;
@@ -84,20 +55,37 @@ function sendJson($data) {
     $sys_debug_log = trim(ob_get_clean());
     if (!is_array($data)) $data = array('data' => $data);
     $data['sys_debug_log'] = $sys_debug_log;
+
+    // Log errors if present
+    if (!empty($sys_debug_log)) {
+        crm_log_add(array(
+            'app_name'    => 'form_multiline_ajax.php',
+            'action_type' => 'error',
+            'description' => 'Uncaught Output: ' . $sys_debug_log
+        ));
+    }
+    if (isset($data['error']) && !empty($data['error'])) {
+        crm_log_add(array(
+            'app_name'    => 'form_multiline_ajax.php',
+            'action_type' => 'error',
+            'description' => 'Application Error: ' . $data['error']
+        ));
+    }
+
     header('Content-Type: application/json');
     echo json_encode($data);
     exit;
 }
 
-$action = isset($_POST['action']) ? $_POST['action'] : '';
-$gridName = isset($_POST['gridName']) ? $_POST['gridName'] : 'adresse_multiline';
-$tableName = isset($_POST['tableName']) ? $_POST['tableName'] : 'adresse';
+$action = isset($_REQUEST['action']) ? $_REQUEST['action'] : '';
+$gridName = isset($_REQUEST['gridName']) ? $_REQUEST['gridName'] : 'adresse_multiline';
+$tableName = isset($_REQUEST['tableName']) ? $_REQUEST['tableName'] : 'adresse';
 
 // 0. EVENTS 
 if ($action == 'execute_event') {
-    $eventName = isset($_POST['eventName']) ? $_POST['eventName'] : '';
-    $fieldName = isset($_POST['fieldName']) ? $_POST['fieldName'] : '';
-    $formDataJson = isset($_POST['formData']) ? $_POST['formData'] : '{}';
+    $eventName = isset($_REQUEST['eventName']) ? $_REQUEST['eventName'] : '';
+    $fieldName = isset($_REQUEST['fieldName']) ? $_REQUEST['fieldName'] : '';
+    $formDataJson = isset($_REQUEST['formData']) ? $_REQUEST['formData'] : '{}';
     $data = json_decode($formDataJson, true);
     if (!is_array($data)) $data = array();
 
@@ -174,7 +162,7 @@ if ($action == 'load_config') {
 
 // 2. CREATE INITIAL CONFIG
 if ($action == 'create_initial_config') {
-    $tableName = $_POST['tableName'];
+    $tableName = $_REQUEST['tableName'];
     $json = json_encode(array(
         'tableName' => $tableName,
         'fields' => array(array('fieldName'=>'id', 'fieldTyp'=>'integer', 'label'=>'ID', 'readonly'=>true, 'width'=>50)),
@@ -191,8 +179,8 @@ if ($action == 'create_initial_config') {
 
 // 3. SCHEMA SYNC CHECKS
 if ($action == 'check_schema') {
-    $tableName = $_POST['tableName'];
-    $rawFields = isset($_POST['currentFields']) ? $_POST['currentFields'] : '[]';
+    $tableName = $_REQUEST['tableName'];
+    $rawFields = isset($_REQUEST['currentFields']) ? $_REQUEST['currentFields'] : '[]';
     $currentFields = json_decode($rawFields, true);
     if (!is_array($currentFields)) $currentFields = array();
     
@@ -201,7 +189,7 @@ if ($action == 'check_schema') {
         if (isset($f['fieldName'])) $existingNames[] = $f['fieldName'];
     }
     
-    $gridName = isset($_POST['gridName']) ? $_POST['gridName'] : '';
+    $gridName = isset($_REQUEST['gridName']) ? $_REQUEST['gridName'] : '';
     if ($gridName) {
         $resConfig = db_select('grid_definition', array('grid_name' => $gridName));
         if ($resConfig['success'] && !empty($resConfig['data'])) {
@@ -244,8 +232,8 @@ if ($action == 'update_schema') {
         return $f;
     }
 
-    $tableName = $_POST['tableName'];
-    $colsToAdd = isset($_POST['cols']) ? $_POST['cols'] : array();
+    $tableName = $_REQUEST['tableName'];
+    $colsToAdd = isset($_REQUEST['cols']) ? $_REQUEST['cols'] : array();
     if (!is_array($colsToAdd)) {
         $colsToAdd = $colsToAdd ? array($colsToAdd) : array();
     }
@@ -269,16 +257,34 @@ if ($action == 'update_schema') {
         }
     }
     $json = json_encode($config);
-    db_update('grid_definition', array('config_json' => $json), array('grid_name' => $gridName));
+    $resUpd = db_update('grid_definition', array('config_json' => $json), array('grid_name' => $gridName));
+    if ($resUpd['success']) {
+        crm_log_add(array(
+            'app_name'    => 'form_multiline_ajax.php',
+            'action_type' => 'update',
+            'table_name'  => 'grid_definition',
+            'record_id'   => $gridName,
+            'description' => "Schema für Grid '$gridName' aktualisiert (neue Spalten hinzugefügt)"
+        ));
+    }
     sendJson(array('status' => 'ok'));
 }
 
 // 5. SAVE CONFIG
 if ($action == 'save_config') {
-    $json = $_POST['config'];
+    $json = $_REQUEST['config'];
     $res = db_update('grid_definition', array('config_json' => $json), array('grid_name' => $gridName));
     if (!$res['success']) sendJson(array('error' => $res['error']));
-    else sendJson(array('status' => 'ok'));
+    else {
+        crm_log_add(array(
+            'app_name'    => 'form_multiline_ajax.php',
+            'action_type' => 'update',
+            'table_name'  => 'grid_definition',
+            'record_id'   => $gridName,
+            'description' => "Konfiguration für Grid '$gridName' gespeichert"
+        ));
+        sendJson(array('status' => 'ok'));
+    }
 }
 
 // 6. LOAD DATA
@@ -288,8 +294,8 @@ if ($action == 'load_data') {
     $config = json_decode($resC['data'][0]['config_json'], true);
     
     $tableName = $config['tableName'];
-    $page = intval($_POST['page']);
-    $limit = intval($_POST['limit']);
+    $page = intval($_REQUEST['page']);
+    $limit = intval($_REQUEST['limit']);
     $offset = ($page - 1) * $limit;
 
     $where = " WHERE 1=1 "; 
@@ -298,8 +304,8 @@ if ($action == 'load_data') {
         $where .= " AND ($delField IS NULL OR $delField != 1) ";
     }
 
-    if (isset($_POST['filters']) && is_array($_POST['filters'])) {
-        foreach ($_POST['filters'] as $f => $v) {
+    if (isset($_REQUEST['filters']) && is_array($_REQUEST['filters'])) {
+        foreach ($_REQUEST['filters'] as $f => $v) {
             if ($v !== '' && $v !== null && $v !== 'null') {
                 $where .= " AND $f LIKE '%".addslashes($v)."%' ";
             }
@@ -307,8 +313,8 @@ if ($action == 'load_data') {
     }
 
     $order = " ORDER BY id DESC ";
-    if (!empty($_POST['sortField'])) {
-        $order = " ORDER BY ".addslashes($_POST['sortField'])." ".($_POST['sortOrder']=='ASC'?'ASC':'DESC');
+    if (!empty($_REQUEST['sortField'])) {
+        $order = " ORDER BY ".addslashes($_REQUEST['sortField'])." ".($_REQUEST['sortOrder']=='ASC'?'ASC':'DESC');
     }
 
     $sFields = array("id");
@@ -363,8 +369,8 @@ if ($action == 'load_data') {
 
 // 7. ACTIONS
 if ($action == 'add_record') {
-    $tableName = $_POST['tableName'];
-    $gridName = isset($_POST['gridName']) ? $_POST['gridName'] : '';
+    $tableName = $_REQUEST['tableName'];
+    $gridName = isset($_REQUEST['gridName']) ? $_REQUEST['gridName'] : '';
     $insertData = array();
     
     if ($gridName) {
@@ -384,28 +390,52 @@ if ($action == 'add_record') {
     
     $res = db_insert($tableName, $insertData);
     if (!$res['success']) {
-        db_insert($tableName, array());
+        $res = db_insert($tableName, array());
     }
+    
+    if ($res['success']) {
+        crm_log_add(array(
+            'app_name'    => 'form_multiline_ajax.php',
+            'action_type' => 'insert',
+            'table_name'  => $tableName,
+            'record_id'   => $res['last_id'],
+            'description' => "Neuer Datensatz in Tabelle '$tableName' erstellt"
+        ));
+    }
+    
     sendJson(array('status' => 'ok'));
 }
 
 if ($action == 'delete_record') {
-    $tableName = $_POST['tableName']; $id = intval($_POST['id']); $mode = $_POST['mode'];
+    $tableName = $_REQUEST['tableName']; $id = intval($_REQUEST['id']); $mode = $_REQUEST['mode'];
     if ($mode === 'delete') {
         $res = db_delete($tableName, array('id' => $id));
+        $actType = 'delete';
+        $desc = "Datensatz ID $id aus Tabelle '$tableName' physisch gelöscht";
     } else {
         $res = db_update($tableName, array($mode => 1), array('id' => $id));
+        $actType = 'soft_delete';
+        $desc = "Datensatz ID $id aus Tabelle '$tableName' als gelöscht markiert (Feld: $mode)";
     }
     if (!$res['success']) sendJson(array('error' => $res['error']));
-    else sendJson(array('status' => 'ok'));
+    else {
+        crm_log_add(array(
+            'app_name'    => 'form_multiline_ajax.php',
+            'action_type' => $actType,
+            'table_name'  => $tableName,
+            'record_id'   => $id,
+            'description' => $desc
+        ));
+        sendJson(array('status' => 'ok'));
+    }
 }
 
 if ($action == 'save_cell') {
-    $id = intval($_POST['id']);
-    $field = $_POST['field'];
-    $value = $_POST['value'];
-    $tableName = $_POST['tableName'];
-    $gridName = isset($_POST['gridName']) ? $_POST['gridName'] : '';
+    $id = intval($_REQUEST['id']);
+    $field = $_REQUEST['field'];
+    $value = $_REQUEST['value'];
+    $tableName = $_REQUEST['tableName'];
+    $gridName = isset($_REQUEST['gridName']) ? $_REQUEST['gridName'] : '';
 
     $config = null;
     if ($gridName) {
@@ -435,6 +465,19 @@ if ($action == 'save_cell') {
     if (!$res['success']) {
         sendJson(array('error' => $res['error']));
     } else {
+        if ((isset($res['rows_affected']) && $res['rows_affected'] > 0) || (isset($res['success']) && $res['success'])) {
+             crm_log_add(array(
+                'app_name'           => 'form_multiline_ajax.php',
+                'action_type'        => 'update',
+                'table_name'         => $tableName,
+                'record_id'          => $id,
+                'changed_field_name' => $field,
+                'field_old_value'    => $fullRow['data'][0][$field] ?? '',
+                'field_new_value'    => $value,
+                'description'        => "Zelle '$field' in Tabelle '$tableName' aktualisiert"
+            ));
+        }
+
         if ($config && isset($config['evt_onaftersave']) && !empty(trim($config['evt_onaftersave']))) {
             try { eval(trim($config['evt_onaftersave'])); } catch(Throwable $e) {}
         }
@@ -445,7 +488,7 @@ if ($action == 'save_cell') {
 if ($action == 'upload_file') {
     if (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
         $hex = bin2hex(file_get_contents($_FILES['file']['tmp_name']));
-        $res = db_query("UPDATE " . $_POST['tableName'] . " SET " . $_POST['field'] . " = 0x$hex WHERE id = " . intval($_POST['id']));
+        $res = db_query("UPDATE " . $_REQUEST['tableName'] . " SET " . $_REQUEST['field'] . " = 0x$hex WHERE id = " . intval($_REQUEST['id']));
         if (!$res['success']) sendJson(array('error' => $res['error']));
         else sendJson(array('status' => 'uploaded'));
     } else {
@@ -454,7 +497,7 @@ if ($action == 'upload_file') {
 }
 
 if ($action == 'load_full_image') {
-    $resImg = db_query("SELECT " . $_POST['field'] . " FROM " . $_POST['tableName'] . " WHERE id = " . intval($_POST['id']));
+    $resImg = db_query("SELECT " . $_REQUEST['field'] . " FROM " . $_REQUEST['tableName'] . " WHERE id = " . intval($_REQUEST['id']));
     if ($resImg['success'] && !empty($resImg['data'])) {
         $row_vals = array_values($resImg['data'][0]);
         $blob = $row_vals[0];
