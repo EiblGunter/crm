@@ -1098,8 +1098,13 @@ $sys_debug_log = trim(ob_get_clean());
             var self = this; this.setStatus('Lade Config...');
             $.post(AJAX_URL, { action: 'load_config', gridName: this.gridName, tableName: this.tableName }, function (res) {
                 if (res.status === 'ok') {
-                    self.config = res.baseConfig; self.lookups = res.lookups; self.fields = self.config.fields; self.limit = self.config.numberPerPage || 10;
-                    self.sortField = self.config.sortField || ''; self.sortOrder = self.config.sortOrder || '';
+                    self.config = res.baseConfig; 
+                    if (self.config.tableName) { self.tableName = self.config.tableName; }
+                    self.lookups = res.lookups; 
+                    self.fields = self.config.fields; 
+                    self.limit = self.config.numberPerPage || 10;
+                    self.sortField = self.config.sortField || ''; 
+                    self.sortOrder = self.config.sortOrder || '';
                     self.container.find('.grid-title').text(self.gridName);
                     
                     self.container.removeClass('mobile-mode-cards mobile-mode-modal');

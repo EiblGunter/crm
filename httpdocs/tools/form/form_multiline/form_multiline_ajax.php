@@ -412,6 +412,9 @@ if ($action == 'save_cell') {
         $resC = db_select('grid_definition', array('grid_name' => $gridName));
         if ($resC['success'] && !empty($resC['data'])) {
             $config = json_decode($resC['data'][0]['config_json'], true);
+            if (isset($config['tableName']) && !empty($config['tableName'])) {
+                $tableName = $config['tableName'];
+            }
         }
     }
 
