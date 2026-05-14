@@ -437,7 +437,8 @@ foreach ($resMeta['data'] as $rowMeta) {
 $c = array_values($rowMeta)[0]; $t = array_values($rowMeta)[1];
 $ft = 'text';
 if(stripos($t,'int')!==false) $ft='integer';
-if(stripos($t,'date')!==false) $ft='date';
+if(stripos($t,'datetime')!==false || stripos($t,'timestamp')!==false) $ft='date_time';
+elseif(stripos($t,'date')!==false) $ft='date';
 if(stripos($t,'text')!==false) $ft='multiple_line_text';
 if(stripos($t,'blob')!==false) $ft='image';
 array_push($nf, array('fieldName'=>$c, 'label'=>ucfirst($c), 'fieldTyp'=>$ft, 'width'=>300, 'readonly'=>($c=='id'),
@@ -578,8 +579,14 @@ if($resMin['success'] && !empty($resMin['data']) && $resMin['data'][0]['min_id']
     }
 
         if ($action == 'save_data') {
-        $tbl = $_REQUEST['tableName']; $fld = $_REQUEST['field']; $val = addslashes($_REQUEST['value']); $id =
-        intval($_REQUEST['id']);
+        $tbl = $_REQUEST['tableName']; $fld = $_REQUEST['field']; $val = $_REQUEST['value']; 
+        // Convert T separator from datetime-local to space for MySQL
+        if (is_string($val) && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/', $val)) {
+            $val = str_replace('T', ' ', $val);
+            if (strlen($val) == 16) $val .= ':00'; // Add seconds
+        }
+        $val = addslashes($val);
+        $id = intval($_REQUEST['id']);
         if($tbl && $fld) {
         $oldRes = db_select($tbl, array('id' => $id));
         $oldVal = ($oldRes['success'] && !empty($oldRes['data'])) ? ($oldRes['data'][0][$fld] ?? '') : '';

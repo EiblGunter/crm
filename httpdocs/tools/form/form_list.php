@@ -32,6 +32,7 @@ if ($action === 'create') {
                     $mappedType = "text";
                     if (strpos($colType, "int") !== false) { $mappedType = "integer"; } 
                     elseif (strpos($colType, "dec") !== false || strpos($colType, "float") !== false || strpos($colType, "double") !== false) { $mappedType = "decimal"; } 
+                    elseif (strpos($colType, "datetime") !== false || strpos($colType, "timestamp") !== false) { $mappedType = "date_time"; } 
                     elseif (strpos($colType, "date") !== false || strpos($colType, "time") !== false) { $mappedType = "date"; } 
                     elseif (strpos($colType, "text") !== false) { $mappedType = "multiple_line_text"; }
                     

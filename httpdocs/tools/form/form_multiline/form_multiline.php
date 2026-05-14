@@ -1225,7 +1225,7 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/design_templates/ag_library.php
             $('#detail-field-name').text(f.fieldName);
             
             // Re-populate type select options
-            var types = ['string', 'integer', 'decimal', 'currency', 'date', 'multiple_line_text', 'email', 'url', 'htmlEditor', 'image', 'youTube', 'GoogleMaps', 'signature', 'select', 'radio', 'checkbox', 'double_select', 'button', 'custom'];
+            var types = ['string', 'integer', 'decimal', 'currency', 'date', 'date_time', 'multiple_line_text', 'email', 'url', 'htmlEditor', 'image', 'youTube', 'GoogleMaps', 'signature', 'select', 'radio', 'checkbox', 'double_select', 'button', 'custom'];
             var opts = ''; types.forEach(function (t) { opts += '<option value="' + t + '" ' + (f.fieldTyp == t ? 'selected' : '') + '>' + t + '</option>'; });
             $('#det_type').html(opts); 
             
@@ -1516,6 +1516,9 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/design_templates/ag_library.php
                 case 'youTube': var vidId = ''; if (value) { var m = value.match(/v=([^&]+)/); if (m) vidId = m[1]; } var thumb = vidId ? '<img src="https://img.youtube.com/vi/' + vidId + '/default.jpg" height="30" class="mr-1">' : ''; var ytLink = vidId ? '<a href="' + value + '" target="_blank" class="ml-1 text-danger btn-icon"><i class="fab fa-youtube"></i></a>' : ''; retHtml = '<div class="d-flex align-items-center">' + thumb + '<input type="text" value="' + value + '" ' + common + ' placeholder="YouTube URL">' + ytLink + '</div>'; break;
                 case 'GoogleMaps': retHtml = '<div class="input-group input-group-sm"><input type="text" value="' + value + '" ' + common + '><div class="input-group-append"><button class="btn btn-outline-success btn-icon" onclick="window.getGrid(\'' + gid + '\').openMap(' + id + ', \'' + f.fieldName + '\', \'' + value + '\')"><i class="fas fa-map-marker-alt"></i></button></div></div>'; break;
                 case 'date': retHtml = '<input type="date" value="' + value + '" ' + common + ' onchange="window.getGrid(\'' + gid + '\').onChange(this, \'' + f.fieldName + '\')">'; break;
+                case 'date_time': 
+                    var dtVal = value ? value.replace(' ', 'T') : '';
+                    retHtml = '<input type="datetime-local" value="' + dtVal + '" ' + common + ' onchange="window.getGrid(\'' + gid + '\').onChange(this, \'' + f.fieldName + '\')">'; break;
                 case 'integer': retHtml = '<input type="number" step="1" value="' + value + '" ' + common + '>'; break;
                 case 'decimal': case 'currency': 
                     var step = (f.behavior && f.behavior.decimals) ? Math.pow(10, -parseInt(f.behavior.decimals)) : '0.01';

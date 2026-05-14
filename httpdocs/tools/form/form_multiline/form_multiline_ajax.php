@@ -434,6 +434,11 @@ if ($action == 'save_cell') {
     $id = intval($_REQUEST['id']);
     $field = $_REQUEST['field'];
     $value = $_REQUEST['value'];
+    // Convert T separator from datetime-local to space for MySQL
+    if (is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/', $value)) {
+        $value = str_replace('T', ' ', $value);
+        if (strlen($value) == 16) $value .= ':00'; // Add seconds if missing
+    }
     $tableName = $_REQUEST['tableName'];
     $gridName = isset($_REQUEST['gridName']) ? $_REQUEST['gridName'] : '';
 

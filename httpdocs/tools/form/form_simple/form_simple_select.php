@@ -70,6 +70,7 @@ if ($action == 'save') {
             $mappedType = "text";
             if (strpos($colType, "int") !== false) { $mappedType = "integer"; } 
             elseif (strpos($colType, "dec") !== false || strpos($colType, "float") !== false || strpos($colType, "double") !== false) { $mappedType = "decimal"; } 
+            elseif (strpos($colType, "datetime") !== false || strpos($colType, "timestamp") !== false) { $mappedType = "date_time"; } 
             elseif (strpos($colType, "date") !== false || strpos($colType, "time") !== false) { $mappedType = "date"; } 
             elseif (strpos($colType, "text") !== false) { $mappedType = "multiple_line_text"; }
             
@@ -172,6 +173,7 @@ if ($action == 'sync') {
                 $mappedType = "text";
                 if (strpos($cType, "int") !== false) { $mappedType = "integer"; } 
                 elseif (strpos($cType, "dec") !== false || strpos($cType, "float") !== false) { $mappedType = "decimal"; } 
+                elseif (strpos($cType, "datetime") !== false || strpos($cType, "timestamp") !== false) { $mappedType = "date_time"; } 
                 elseif (strpos($cType, "date") !== false || strpos($cType, "time") !== false) { $mappedType = "date"; } 
                 elseif (strpos($cType, "text") !== false) { $mappedType = "multiple_line_text"; }
                 

@@ -1482,6 +1482,11 @@ $modal_mode = isset($_GET['modal_mode']) ? intval($_GET['modal_mode']) : 0;
                 'date': function(f, val, common, valStr, lookups, isDesign) {
                     return '<input type="date" ' + common + ' ' + valStr + '>';
                 },
+                'date_time': function(f, val, common, valStr, lookups, isDesign) {
+                    var dtVal = (val && typeof val === 'string') ? val.replace(' ', 'T') : '';
+                    if (dtVal.length > 16) dtVal = dtVal.substring(0, 16);
+                    return '<input type="datetime-local" ' + common + ' value="' + dtVal + '">';
+                },
                 'integer': function(f, val, common, valStr, lookups, isDesign) {
                     return '<input type="number" step="1" ' + common + ' ' + valStr + '>';
                 },
@@ -1596,7 +1601,7 @@ $modal_mode = isset($_GET['modal_mode']) ? intval($_GET['modal_mode']) : 0;
                     if (f.fieldTyp === 'button') {
                         htmlOut = renderer.call(this, f, val, '', valStr, this.lookups, this.isDesign, this);
                     } else {
-                        var hasPrefixOrSuffix = (beh.prefix || beh.suffix) && ['text', 'integer', 'decimal', 'date', 'multiple_line_text'].indexOf(f.fieldTyp || 'text') !== -1;
+                        var hasPrefixOrSuffix = (beh.prefix || beh.suffix) && ['text', 'integer', 'decimal', 'date', 'date_time', 'multiple_line_text'].indexOf(f.fieldTyp || 'text') !== -1;
                     
                     if (hasPrefixOrSuffix) {
                         // Remove rounded corners on the input where prefix/suffix attaches
@@ -2108,6 +2113,7 @@ $modal_mode = isset($_GET['modal_mode']) ? intval($_GET['modal_mode']) : 0;
                 switch(t) {
                     case 'multiple_line_text': newHtml = '<textarea ' + commonDef + ' rows="2">' + valStr + '</textarea>'; break;
                     case 'date': newHtml = '<input type="date" ' + commonDef + ' value="2026-04-01">'; break;
+                    case 'date_time': newHtml = '<input type="datetime-local" ' + commonDef + ' value="2026-04-01T12:00">'; break;
                     case 'integer': newHtml = '<input type="number" step="1" ' + commonDef + ' value="100">'; break;
                     case 'decimal': newHtml = '<input type="number" step="' + step + '" ' + commonDef + ' value="100.50">'; break;
                     case 'select': 
@@ -2144,7 +2150,7 @@ $modal_mode = isset($_GET['modal_mode']) ? intval($_GET['modal_mode']) : 0;
                 
                 var pre = $('#det_beh_prefix').val();
                 var suf = $('#det_beh_suffix').val();
-                if ((pre || suf) && ['text', 'integer', 'decimal', 'date', 'multiple_line_text'].indexOf(t) !== -1) {
+                if ((pre || suf) && ['text', 'integer', 'decimal', 'date', 'date_time', 'multiple_line_text'].indexOf(t) !== -1) {
                     var preHtml = app.buildPrefixSuffix(pre, true);
                     var sufHtml = app.buildPrefixSuffix(suf, false);
                     newHtml = '<div class="input-group input-group-sm h-100">' + preHtml + newHtml + sufHtml + '</div>';
@@ -2290,7 +2296,7 @@ $modal_mode = isset($_GET['modal_mode']) ? intval($_GET['modal_mode']) : 0;
                     $('#detail-field-name').text(f.fieldName); 
                 }
 
-                var types = ['text', 'multiple_line_text', 'date', 'integer', 'decimal', 'select', 'radio', 'checkbox', 'htmlEditor', 'image', 'signature', 'GoogleMaps', 'email', 'url', 'youTube', 'video', 'button']; 
+                var types = ['text', 'multiple_line_text', 'date', 'date_time', 'integer', 'decimal', 'select', 'radio', 'checkbox', 'htmlEditor', 'image', 'signature', 'GoogleMaps', 'email', 'url', 'youTube', 'video', 'button']; 
                 var opts = ''; 
                 types.forEach(function (t) { opts += '<option value="' + t + '" ' + (f.fieldTyp == t ? 'selected' : '') + '>' + t + '</option>'; }); 
                 $('#det_type').html(opts); 
@@ -2375,6 +2381,9 @@ $modal_mode = isset($_GET['modal_mode']) ? intval($_GET['modal_mode']) : 0;
                 switch(t) {
                     case 'multiple_line_text': newHtml = '<textarea ' + commonDef + ' rows="4">' + valStr + '</textarea>'; break;
                     case 'date': newHtml = '<input type="date" ' + commonDef + ' value="' + valStr + '">'; break;
+                    case 'date_time': 
+                        var dtVal = valStr ? valStr.replace(' ', 'T') : '';
+                        newHtml = '<input type="datetime-local" ' + commonDef + ' value="' + dtVal + '">'; break;
                     case 'integer': newHtml = '<input type="number" step="1" ' + commonDef + ' value="' + valStr + '">'; break;
                     case 'decimal': newHtml = '<input type="number" step="0.01" ' + commonDef + ' value="' + valStr + '">'; break;
                     case 'email': newHtml = '<div class="input-group input-group-sm"><div class="input-group-prepend"><span class="input-group-text"><i class="fas fa-envelope"></i></span></div><input type="email" ' + commonDef + ' value="' + valStr + '"></div>'; break;
