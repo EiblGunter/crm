@@ -7,6 +7,9 @@
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/db/db.php';
 
+// 1. START ERROR/OUTPUT BUFFERING
+ob_start();
+
 // --- DATABASE CONNECTION ---
 if (!getenv('MYSQL_HOST')) {
     $envPath = __DIR__ . '/../../../.env';
@@ -144,6 +147,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
     }
 
+    // 3. END ERROR/OUTPUT BUFFERING
+    $sys_debug_log = trim(ob_get_clean());
+    $response['sys_debug_log'] = $sys_debug_log;
+
     echo json_encode($response);
     exit;
 }
@@ -175,6 +182,9 @@ if ($result['success'] && !empty($result['data'])) {
 } else {
     $error = $result['error'];
 }
+
+// 3. END ERROR/OUTPUT BUFFERING
+$sys_debug_log = trim(ob_get_clean());
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -355,6 +365,13 @@ if ($result['success'] && !empty($result['data'])) {
     <div id="notification">Gespeichert</div>
 
     <div class="container">
+        <?php if (!empty($sys_debug_log)): ?>
+            <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 mb-6 shadow-sm rounded-r">
+                <h3 class="font-bold text-sm mb-2">System Debug / Uncaught Output:</h3>
+                <pre class="text-xs overflow-auto whitespace-pre-wrap"><?= htmlspecialchars($sys_debug_log) ?></pre>
+            </div>
+        <?php endif; ?>
+
         <?php if ($error): ?>
         <div style="background: #f8d7da; color: #721c24; padding: 15px; margin-bottom: 20px; border-radius: 6px; border: 1px solid #f5c6cb;">
             <strong>Fehler:</strong> <?php echo htmlspecialchars($error); ?>

@@ -8,6 +8,9 @@
 require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/db/db.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/design_templates/ag_library.php';
 
+// 1. START ERROR/OUTPUT BUFFERING
+ob_start();
+
 // --- DATABASE CONNECTION ---
 if (!getenv('MYSQL_HOST')) {
     $envPath = __DIR__ . '/../../../.env';
@@ -145,6 +148,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
     }
 
+    // 3. END ERROR/OUTPUT BUFFERING
+    $sys_debug_log = trim(ob_get_clean());
+    $response['sys_debug_log'] = $sys_debug_log;
+
     echo json_encode($response);
     exit;
 }
@@ -175,6 +182,9 @@ if ($result['success'] && !empty($result['data'])) {
 } else {
     $error = $result['error'];
 }
+
+// 3. END ERROR/OUTPUT BUFFERING
+$sys_debug_log = trim(ob_get_clean());
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -216,6 +226,13 @@ if ($result['success'] && !empty($result['data'])) {
     <?php ag_render_header('Adressverwaltung', $initialData['id'] ?? '...'); ?>
 
     <main class="max-w-4xl mx-auto my-12">
+        <?php if (!empty($sys_debug_log)): ?>
+            <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 mb-6 shadow-sm rounded-r">
+                <h3 class="font-bold text-sm mb-2">System Debug / Uncaught Output:</h3>
+                <pre class="text-xs overflow-auto whitespace-pre-wrap"><?= htmlspecialchars($sys_debug_log) ?></pre>
+            </div>
+        <?php endif; ?>
+
         <?php if ($error): ?>
             <div
                 class="mx-6 mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm font-bold flex items-center gap-3">

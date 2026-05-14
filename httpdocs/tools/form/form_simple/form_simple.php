@@ -1,4 +1,5 @@
 <?php
+ob_start();
 session_start();
 /**
  * Project: ge_grid_edit
@@ -15,6 +16,7 @@ $startId = isset($_GET['id']) ? intval($_GET['id']) : 1;
 $mode = isset($_GET['mode']) ? $_GET['mode'] : 'design';
 $modal_mode = isset($_GET['modal_mode']) ? intval($_GET['modal_mode']) : 0;
 
+$sys_debug_log = trim(ob_get_clean());
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -541,6 +543,13 @@ $modal_mode = isset($_GET['modal_mode']) ? intval($_GET['modal_mode']) : 0;
     <div id="loading">
         <div class="spinner-border text-primary"></div>
     </div>
+
+    <?php if (!empty($sys_debug_log)): ?>
+        <div class="p-4 bg-yellow-100 text-yellow-800 border-bottom border-yellow-500">
+            <h3 class="font-bold text-sm mb-2">System Debug / Uncaught Output:</h3>
+            <pre class="text-xs overflow-auto whitespace-pre-wrap m-0"><?= htmlspecialchars($sys_debug_log) ?></pre>
+        </div>
+    <?php endif; ?>
 
     <div id="ag-header">
         <div class="toolbar-group" style="flex: 1; display: flex; justify-content: flex-start;">

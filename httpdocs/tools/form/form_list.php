@@ -2,6 +2,7 @@
 session_start();
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/db/db.php';
+ob_start();
 
 // Umgebungsvariablen laden, falls nicht vorhanden
 if (!getenv('MYSQL_HOST')) {
@@ -126,7 +127,8 @@ if ($action === 'update_metadata') {
         if ($oldGridName !== $newGridName) {
             $check = db_select('grid_definition', array('grid_name' => $newGridName));
             if ($check['success'] && !empty($check['data'])) {
-                echo json_encode(['success' => false, 'error' => 'Name existiert bereits']);
+                $sys_debug_log = trim(ob_get_clean());
+                echo json_encode(['success' => false, 'error' => 'Name existiert bereits', 'sys_debug_log' => $sys_debug_log]);
                 exit;
             }
         }
@@ -135,9 +137,11 @@ if ($action === 'update_metadata') {
         
         // Update session if needed, though they are stored in DB.
         
-        echo json_encode(['success' => $res['success'], 'error' => $res['error'] ?? '']);
+        $sys_debug_log = trim(ob_get_clean());
+        echo json_encode(['success' => $res['success'], 'error' => $res['error'] ?? '', 'sys_debug_log' => $sys_debug_log]);
     } else {
-        echo json_encode(['success' => false, 'error' => 'Fehlende Parameter']);
+        $sys_debug_log = trim(ob_get_clean());
+        echo json_encode(['success' => false, 'error' => 'Fehlende Parameter', 'sys_debug_log' => $sys_debug_log]);
     }
     exit;
 }
@@ -146,6 +150,7 @@ if ($action === 'update_metadata') {
 if ($action === 'api_table_schema') {
     $tbl = filter_input(INPUT_GET, 'table_name');
     $res = db_query("SELECT COLUMN_NAME as 'Feldname', DATA_TYPE as 'Datentyp', CHARACTER_MAXIMUM_LENGTH as 'Max Länge', IS_NULLABLE as 'Nullable' FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ? AND TABLE_SCHEMA = DATABASE()", array($tbl));
+    $res['sys_debug_log'] = trim(ob_get_clean());
     echo json_encode($res); exit;
 }
 if ($action === 'api_table_data') {
@@ -169,9 +174,11 @@ if ($action === 'api_table_data') {
                 }
             }
         }
+        $res['sys_debug_log'] = trim(ob_get_clean());
         echo json_encode($res);
     } else {
-        echo json_encode(['success' => false, 'error' => 'Ungültiger Tabellenname']);
+        $sys_debug_log = trim(ob_get_clean());
+        echo json_encode(['success' => false, 'error' => 'Ungültiger Tabellenname', 'sys_debug_log' => $sys_debug_log]);
     }
     exit;
 }
@@ -180,6 +187,7 @@ if ($action === 'api_table_data') {
 // HTML & UI
 // -----------------------------------------------------------------------------
 require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/design_templates/ag_library.php';
+$sys_debug_log = trim(ob_get_clean());
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -212,6 +220,12 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/design_templates/ag_library.php
     <?php ag_render_header('Forms Dashboard', 'MODUL'); ?>
 
     <main class="max-w-[98%] mx-auto my-8">
+        <?php if (!empty($sys_debug_log)): ?>
+            <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 mb-6 shadow-sm rounded-r">
+                <h3 class="font-bold text-sm mb-2">System Debug / Uncaught Output:</h3>
+                <pre class="text-xs overflow-auto whitespace-pre-wrap"><?= htmlspecialchars($sys_debug_log) ?></pre>
+            </div>
+        <?php endif; ?>
         <div class="ag-page-card shadow-2xl p-8 flex flex-col md:flex-row gap-8">
             
             <!-- Linke Spalte: Existierende Forms -->

@@ -9,6 +9,7 @@
 session_start();
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/db/db.php';
+ob_start(); // AG Error Handling: Start Buffering
 
 // Umgebungsvariablen laden, falls nicht vorhanden
 if (!getenv('MYSQL_HOST')) {
@@ -49,6 +50,7 @@ if (!isset($_SESSION['asdw_user']))
 $currentUser = $_SESSION['asdw_user'];
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/design_templates/ag_library.php';
+$sys_debug_log = trim(ob_get_clean());
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -377,6 +379,14 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/design_templates/ag_library.php
 
     <?php ag_render_header('Multiline Grid Designer', 'MODUL'); ?>
 
+    <?php if (!empty($sys_debug_log)): ?>
+        <div class="px-4 mt-4 w-full">
+            <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 shadow-sm rounded-r">
+                <h3 class="font-bold text-sm mb-2">System Debug / Uncaught Output:</h3>
+                <pre class="text-xs overflow-auto whitespace-pre-wrap"><?= htmlspecialchars($sys_debug_log) ?></pre>
+            </div>
+        </div>
+    <?php endif; ?>
     
     <main class="flex-grow w-full px-4 my-4 d-flex" style="gap: 15px; align-items: flex-start;">
         <div id="form-wrapper" style="flex: 1; min-width: 0;">

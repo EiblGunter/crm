@@ -81,7 +81,9 @@ function getLookupData($configFields) {
 }
 
 function sendJson($data) {
-    ob_end_clean();
+    $sys_debug_log = trim(ob_get_clean());
+    if (!is_array($data)) $data = array('data' => $data);
+    $data['sys_debug_log'] = $sys_debug_log;
     header('Content-Type: application/json');
     echo json_encode($data);
     exit;

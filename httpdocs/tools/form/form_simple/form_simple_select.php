@@ -1,5 +1,6 @@
 <?php
 session_start();
+ob_start();
 // 1. Initialisierung und Action-Routing
 $action = filter_input(INPUT_POST, 'action');
 if (empty($action)) {
@@ -206,6 +207,7 @@ if ($action == 'sync') {
 }
 
 // 6. HTML-Ausgabe
+$sys_debug_log = trim(ob_get_clean());
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -228,6 +230,14 @@ if ($action == 'sync') {
 <body class="bg-light w-100 min-h-screen">
 
     <main class="max-w-[98%] mx-auto my-8">
+        <?php if (!empty($sys_debug_log)): ?>
+            <div class="mb-4">
+                <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 shadow-sm rounded-r">
+                    <h3 class="font-bold text-sm mb-2">System Debug / Uncaught Output:</h3>
+                    <pre class="text-xs overflow-auto whitespace-pre-wrap"><?= htmlspecialchars($sys_debug_log) ?></pre>
+                </div>
+            </div>
+        <?php endif; ?>
         <div id="ag-header" class="d-flex justify-content-between align-items-center p-3 rounded-top shadow-sm">
             <h2 class="m-0 fs-4" style="color: inherit;"><?php echo $pageTitle; ?></h2>
             <div class="header-actions flex items-center gap-4 d-flex">
