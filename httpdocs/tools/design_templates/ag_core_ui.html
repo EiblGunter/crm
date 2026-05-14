@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anti-Gravity Tailwind Demo & Importer</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* Basis-Variablen mit Fallbacks */
+        :root {
+            --ag-color-brand: #2674AF;
+            --ag-color-background: #f1f5f9;
+            --ag-color-surface: #ffffff;
+            --ag-color-text-main: #1e293b;
+            --ag-color-border: #e2e8f0;
+            --ag-color-toolbar_bg: #ffffff;
+            --ag-spacing-toolbar_height: 70px;
+            --ag-spacing-border_radius: 12px;
+            --ag-design-focus_bg: #FFFFD9;
+
+            /* Fallbacks für Felder (werden durch INI überschrieben) */
+            --ag-spacing-input_padding: 0.5rem 0.75rem;
+            --ag-spacing-input_radius: 6px;
+            --ag-font-input-size: 13px;
+            --ag-font-label-size: 11px;
+            --ag-font-label-weight: bold;
+            --ag-color-label_text: #64748b;
+            /* Tailwind slate-500 equivalent */
+            --ag-color-input_text: #1e293b;
+            --ag-color-input_bg: #ffffff;
+            --ag-color-input_border: #e2e8f0;
+        }
+
+        body {
+            background-color: var(--ag-color-background);
+            color: var(--ag-color-text-main);
+            font-family: 'Inter', system-ui, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            transition: background-color 0.3s ease;
+        }
+
+        #ag-form-canvas {
+            background-color: var(--ag-color-surface);
+            border: 1px solid var(--ag-color-border);
+            border-radius: var(--ag-spacing-border_radius, 8px);
+            position: relative;
+            width: 1000px;
+            height: 700px;
+            transition: all 0.4s ease;
+        }
+
+        #ag-form-canvas.design-mode {
+            background-image: radial-gradient(var(--ag-color-border) 1px, transparent 1px);
+            background-size: 20px 20px;
+            border: 2px dashed var(--ag-color-brand);
+        }
+
+        .ag-form-element {
+            position: absolute;
+            box-sizing: border-box;
+        }
+
+        /* Das Label nutzt jetzt Typografie-Variablen */
+        .ag-form-element[id^="lbl_"] {
+            color: var(--ag-color-label_text, inherit);
+            font-size: var(--ag-font-label-size, 11px);
+            font-weight: var(--ag-font-label-weight, bold);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Der Input nutzt jetzt Padding und Radius aus dem SC-Theme */
+        .ag-input-field {
+            width: 100%;
+            height: var(--ag-spacing-input_height, 100%);
+            padding: var(--ag-spacing-input_padding);
+            border-radius: var(--ag-spacing-input_radius);
+            border: 1px solid var(--ag-color-input_border, var(--ag-color-border));
+            background-color: var(--ag-color-input_bg, #fff);
+            color: var(--ag-color-input_text, inherit);
+            font-size: var(--ag-font-input-size, 13px);
+            transition: all 0.2s;
+        }
+
+        .ag-input-field:focus {
+            outline: 2px solid var(--ag-color-brand);
+            background-color: var(--ag-design-focus_bg) !important;
+        }
+
+        @media (max-width: 768px) {
+            #ag-form-wrapper {
+                padding: 1rem;
+            }
+
+            #ag-form-canvas {
+                width: 100% !important;
+                height: auto !important;
+                display: flex !important;
+                flex-direction: column !important;
+                padding: 1.5rem;
+                box-shadow: none;
+            }
+
+            .ag-form-element {
+                position: relative !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                margin-bottom: 0.75rem !important;
+            }
+
+            .ag-form-element[id^="lbl_"] {
+                margin-bottom: 0 !important;
+                margin-top: 0.5rem;
+            }
+        }
+    </style>
+</head>
+
+<body class="antialiased">
+
+    <header
+        class="h-[var(--ag-spacing-toolbar_height)] bg-[var(--ag-color-toolbar_bg)] border-b border-[var(--ag-color-border)] flex justify-between items-center px-6 shadow-sm sticky top-0 z-[1000] transition-colors duration-300">
+
+        <div class="flex items-center gap-2">
+            <span class="text-[10px] font-black uppercase text-slate-400 hidden sm:inline">Import .ini</span>
+            <select id="iniSelector"
+                class="bg-slate-50 border border-slate-200 text-xs rounded-md p-1.5 outline-none focus:border-blue-500">
+                <option value="">Lade Dateien...</option>
+            </select>
+            <button onclick="loadIniFiles()"
+                class="p-1.5 bg-slate-100 border border-slate-200 rounded-md hover:bg-slate-200 text-slate-500 transition-all"
+                title="Ordner aktualisieren">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+            <button onclick="applySelectedIni()"
+                class="px-3 py-1.5 bg-[var(--ag-color-brand)] text-white text-xs font-bold rounded-md shadow-sm transition-all">
+                Anwenden
+            </button>
+        </div>
+
+        <div
+            class="hidden lg:block font-extrabold text-slate-900 tracking-tight text-lg truncate flex-1 text-center px-4">
+            PROJEKT: <span class="text-[var(--ag-color-brand)]">ANTI-GRAVITY</span>
+        </div>
+
+        <div class="flex items-center gap-6">
+            <div class="hidden sm:flex items-center gap-3">
+                <span class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Design Mode</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="designSwitch" class="sr-only peer" onchange="toggleDesign(this.checked)">
+                    <div
+                        class="w-10 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600">
+                    </div>
+                </label>
+            </div>
+            <button
+                class="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black transition-all">
+                <i class="fas fa-save"></i> <span class="hidden sm:inline">Speichern</span>
+            </button>
+        </div>
+    </header>
+
+    <main id="ag-form-wrapper" class="flex-1 flex justify-center overflow-auto p-4 sm:p-12">
+        <div id="ag-form-canvas" class="shadow-2xl">
+
+            <div id="lbl_company" class="ag-form-element" style="left: 60px; top: 60px;">
+                Unternehmen / Organisation <span class="text-red-500 ml-1">*</span>
+            </div>
+            <div id="inp_company" class="ag-form-element" style="left: 60px; top: 85px; width: 420px;">
+                <input type="text" class="ag-input-field" value="Gunter Eibl ERP Solutions">
+            </div>
+
+            <div id="lbl_category" class="ag-form-element" style="left: 510px; top: 60px;">
+                Kategorie
+            </div>
+            <div id="inp_category" class="ag-form-element" style="left: 510px; top: 85px; width: 200px;">
+                <select class="ag-input-field">
+                    <option>Consulting</option>
+                    <option>Entwicklung</option>
+                </select>
+            </div>
+
+            <div id="lbl_summary" class="ag-form-element" style="left: 60px; top: 150px;">
+                Zusammenfassung der Anforderungen
+            </div>
+            <div id="inp_summary" class="ag-form-element" style="left: 60px; top: 175px; width: 650px; height: 150px;">
+                <textarea
+                    class="ag-input-field">Modernisierung der PHP-Applikationen durch ein KI-gestütztes Variable Design System auf Basis von Tailwind CSS und Scriptcase-Templates.</textarea>
+            </div>
+
+        </div>
+    </main>
+
+    <footer
+        class="p-6 bg-white border-t border-slate-200 flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-slate-400">
+        <span>&copy; 2024 ANTI-GRAVITY ERP</span>
+        <div class="flex gap-6">
+            <a href="#" class="hover:text-slate-900 transition-colors">Support</a>
+            <a href="#" class="hover:text-slate-900 transition-colors">API Docs</a>
+        </div>
+    </footer>
+
+    <script>
+        const API_URL = 'ag_converter.php'; // Pfad zur PHP-Datei
+
+        // 1. Lädt alle .ini Dateien in das Dropdown
+        async function loadIniFiles() {
+            const selector = document.getElementById('iniSelector');
+            selector.innerHTML = '<option>Lade...</option>';
+
+            try {
+                const response = await fetch(`${API_URL}?action=list_files`);
+                const files = await response.json();
+
+                selector.innerHTML = '<option value="">-- Wähle Vorlage --</option>';
+
+                if (files.length === 0) {
+                    selector.innerHTML = '<option value="">Keine .ini gefunden</option>';
+                    return;
+                }
+
+                files.forEach(file => {
+                    const opt = document.createElement('option');
+                    opt.value = file;
+                    opt.textContent = file;
+                    selector.appendChild(opt);
+                });
+            } catch (error) {
+                console.error('Fehler beim Laden:', error);
+                selector.innerHTML = '<option value="">Server-Fehler</option>';
+            }
+        }
+
+        // 2. Holt die konvertierte JSON und wendet sie als CSS Variablen an
+        async function applySelectedIni() {
+            const filename = document.getElementById('iniSelector').value;
+            if (!filename) {
+                alert("Bitte wähle zuerst eine .ini Datei aus.");
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}?action=convert&file=${filename}`);
+                const theme = await response.json();
+
+                if (theme.error) {
+                    alert("Fehler bei der Konvertierung: " + theme.error);
+                    return;
+                }
+
+                // CSS Variablen live im DOM austauschen
+                const root = document.documentElement;
+
+                if (theme.colors) {
+                    for (const [key, value] of Object.entries(theme.colors)) {
+                        root.style.setProperty(`--ag-color-${key}`, value);
+                    }
+                }
+
+                if (theme.spacing) {
+                    for (const [key, value] of Object.entries(theme.spacing)) {
+                        root.style.setProperty(`--ag-spacing-${key}`, value);
+                    }
+                }
+
+                if (theme.typography) {
+                    for (const [key, value] of Object.entries(theme.typography)) {
+                        // CSS Variablen nutzen Bindestriche statt Unterstriche
+                        const cssKey = key.replace(/_/g, '-');
+                        root.style.setProperty(`--ag-font-${cssKey}`, value);
+                    }
+                }
+
+                if (theme.design_mode) {
+                    for (const [key, value] of Object.entries(theme.design_mode)) {
+                        root.style.setProperty(`--ag-design-${key}`, value);
+                    }
+                }
+
+                console.log("Theme erfolgreich angewendet:", filename);
+
+            } catch (error) {
+                console.error("Fehler beim Anwenden:", error);
+            }
+        }
+
+        function toggleDesign(isActive) {
+            const canvas = document.getElementById('ag-form-canvas');
+            if (isActive) {
+                canvas.classList.add('design-mode');
+            } else {
+                canvas.classList.remove('design-mode');
+            }
+        }
+
+        // Beim Laden der Seite sofort nach INI Dateien suchen
+        document.addEventListener('DOMContentLoaded', loadIniFiles);
+    </script>
+</body>
+
+</html>

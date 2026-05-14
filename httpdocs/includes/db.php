@@ -4,7 +4,7 @@
  * Uses ag_database_layer (procedural db_* functions)
  */
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/../tools/db/db.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/db/db.php';
 
 // Load .env
 $envPath = $_SERVER['DOCUMENT_ROOT'] . '/../.env';
@@ -23,7 +23,7 @@ if (file_exists($envPath)) {
 $mysql_config = array(
     'host'    => getenv('MYSQL_HOST') ?: '127.0.0.1',
     'port'    => getenv('MYSQL_PORT') ?: '3308',
-    'db'      => getenv('MYSQL_DATABASE') ?: 'dev_db',
+    'db'      => getenv('MYSQL_DATABASE') ?: 'crm_db',
     'user'    => getenv('MYSQL_USER') ?: 'dev_user',
     'pass'    => getenv('MYSQL_PASSWORD') ?: 'dev_password',
     'charset' => 'utf8mb4'

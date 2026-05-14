@@ -57,7 +57,7 @@ require_once 'includes/db.php';
                         </p>
                         <div class="status status-err">Getrennt</div>
                         <p style="margin-top: 1rem; font-size: 0.9rem;">
-                            Bitte erstelle die Datenbank <code>dev_db</code> in deinem MySQL Server.
+                            Bitte erstelle die Datenbank <code>crm_db</code> in deinem MySQL Server.
                         </p>
                     <?php endif; ?>
                 </div>

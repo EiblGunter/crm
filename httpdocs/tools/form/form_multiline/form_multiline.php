@@ -8,7 +8,7 @@
 
 session_start();
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/../tools/db/db.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/db/db.php';
 
 // Umgebungsvariablen laden, falls nicht vorhanden
 if (!getenv('MYSQL_HOST')) {
@@ -30,7 +30,7 @@ $mysql_config = array(
     'driver'  => 'mysql',
     'host'    => getenv('MYSQL_HOST') ?: '127.0.0.1',
     'port'    => getenv('MYSQL_PORT') ?: '3307',
-    'db'      => getenv('MYSQL_DATABASE') ?: 'dev_db',
+    'db'      => getenv('MYSQL_DATABASE') ?: 'crm_db',
     'user'    => getenv('MYSQL_USER') ?: 'root',
     'pass'    => getenv('MYSQL_PASSWORD') ?: 'Hotel111',
     'charset' => 'utf8mb4'
@@ -48,7 +48,7 @@ if (!isset($_SESSION['asdw_user']))
     $_SESSION['asdw_user'] = 'gunter';
 $currentUser = $_SESSION['asdw_user'];
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/../tools/design_templates/ag_library.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/design_templates/ag_library.php';
 ?>
 <!DOCTYPE html>
 <html lang="de">

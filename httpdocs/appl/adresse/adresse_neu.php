@@ -5,8 +5,8 @@
  * Guidelines: Nutzt ag_library.php für Header, Footer und Field-Groups.
  */
 
-require_once __DIR__ . '/../../../tools/db/db.php';
-require_once __DIR__ . '/../../../tools/design_templates/ag_library.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/db/db.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/design_templates/ag_library.php';
 
 // --- DATABASE CONNECTION ---
 if (!getenv('MYSQL_HOST')) {
@@ -30,7 +30,7 @@ $mysql_config = array(
     'driver' => 'mysql',
     'host' => getenv('MYSQL_HOST') ?: '127.0.0.1',
     'port' => getenv('MYSQL_PORT') ?: '3307',
-    'db' => getenv('MYSQL_DATABASE') ?: 'dev_db',
+    'db' => getenv('MYSQL_DATABASE') ?: 'crm_db',
     'user' => getenv('MYSQL_USER') ?: 'root',
     'pass' => getenv('MYSQL_PASSWORD') ?: 'Hotel111',
     'charset' => 'utf8mb4'

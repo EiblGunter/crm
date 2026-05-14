@@ -5,7 +5,7 @@
  * Guidelines: Scriptcase-like macros simulated, PDO used as per project db.php.
  */
 
-require_once __DIR__ . '/../../tools/db.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/db/db.php';
 
 // --- DATABASE INITIALIZATION ---
 function initDatabase()

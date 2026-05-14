@@ -61,7 +61,7 @@ if (!getenv('MYSQL_HOST')) {
 $mysql_config = array(
     'driver'  => 'mysql',
     'host'    => getenv('MYSQL_HOST') ?: 'mysql_db',
-    'db'      => getenv('MYSQL_DATABASE') ?: 'dev_db',
+    'db'      => getenv('MYSQL_DATABASE') ?: 'crm_db',
     'user'    => getenv('MYSQL_USER') ?: 'dev_user',
     'pass'    => getenv('MYSQL_PASSWORD') ?: 'dev_password',
     'charset' => 'utf8mb4'

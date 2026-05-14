@@ -31,7 +31,7 @@ $modal_mode = isset($_GET['modal_mode']) ? intval($_GET['modal_mode']) : 0;
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Trumbowyg/2.27.3/plugins/colors/ui/trumbowyg.colors.min.css">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <?php
-    require_once $_SERVER['DOCUMENT_ROOT'] . '/../tools/design_templates/ag_library.php';
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/design_templates/ag_library.php';
     ag_inject_css_variables([]);
     ?>
     <script src="https://cdn.tailwindcss.com"></script>

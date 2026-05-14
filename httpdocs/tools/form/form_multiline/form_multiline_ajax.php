@@ -9,7 +9,7 @@
 ob_start();
 session_start();
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/../tools/db/db.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/tools/db/db.php';
 
 if (!getenv('MYSQL_HOST')) {
     $envPath = $_SERVER['DOCUMENT_ROOT'] . '/../.env';
@@ -32,7 +32,7 @@ if (!function_exists('db_connect')) {
         'driver'  => 'mysql',
         'host'    => getenv('MYSQL_HOST') ?: '127.0.0.1',
         'port'    => getenv('MYSQL_PORT') ?: '3307',
-        'db'      => getenv('MYSQL_DATABASE') ?: 'dev_db',
+        'db'      => getenv('MYSQL_DATABASE') ?: 'crm_db',
         'user'    => getenv('MYSQL_USER') ?: 'root',
         'pass'    => getenv('MYSQL_PASSWORD') ?: 'Hotel111',
         'charset' => 'utf8mb4'
